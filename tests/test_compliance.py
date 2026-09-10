@@ -7,10 +7,10 @@ Run with:  pytest tests/ -v
 
 import pytest
 
-
 # ================================================================
 # Tests for: PPE → Person Association Logic (Phase 5)
 # ================================================================
+
 
 def associate_ppe(person_bbox, ppe_detections):
     """
@@ -22,20 +22,20 @@ def associate_ppe(person_bbox, ppe_detections):
     ph = py2 - py1
 
     regions = {
-        "head":  (px1, py1,              px2, py1 + ph * 0.20),
-        "face":  (px1, py1 + ph * 0.05,  px2, py1 + ph * 0.30),
-        "torso": (px1, py1 + ph * 0.20,  px2, py1 + ph * 0.70),
-        "hands": (px1, py1 + ph * 0.50,  px2, py1 + ph * 0.80),
-        "feet":  (px1, py1 + ph * 0.80,  px2, py2),
+        "head": (px1, py1, px2, py1 + ph * 0.20),
+        "face": (px1, py1 + ph * 0.05, px2, py1 + ph * 0.30),
+        "torso": (px1, py1 + ph * 0.20, px2, py1 + ph * 0.70),
+        "hands": (px1, py1 + ph * 0.50, px2, py1 + ph * 0.80),
+        "feet": (px1, py1 + ph * 0.80, px2, py2),
     }
 
     ppe_map = {
-        "helmet":  "head",
+        "helmet": "head",
         "goggles": "face",
-        "mask":    "face",
-        "vest":    "torso",
-        "gloves":  "hands",
-        "boots":   "feet",
+        "mask": "face",
+        "vest": "torso",
+        "gloves": "hands",
+        "boots": "feet",
         "harness": "torso",
     }
 
@@ -54,28 +54,28 @@ class TestAssociatePPE:
 
     def test_helmet_in_head_region_detected(self):
         """Helmet centroid in head region → True"""
-        person = (100, 0, 300, 400)   # height=400 → head region y: 0–80
+        person = (100, 0, 300, 400)  # height=400 → head region y: 0–80
         helmet_det = [{"class": "helmet", "cx": 200, "cy": 40}]
         result = associate_ppe(person, helmet_det)
         assert result["helmet"] is True
 
     def test_helmet_below_head_region_ignored(self):
         """Helmet centroid below head region → False (e.g., held in hand)"""
-        person = (100, 0, 300, 400)   # head region y: 0–80
+        person = (100, 0, 300, 400)  # head region y: 0–80
         helmet_det = [{"class": "helmet", "cx": 200, "cy": 300}]
         result = associate_ppe(person, helmet_det)
         assert result["helmet"] is False
 
     def test_vest_in_torso_region_detected(self):
         """Vest centroid in torso region → True"""
-        person = (0, 0, 100, 400)   # height=400 → torso y: 80–280
+        person = (0, 0, 100, 400)  # height=400 → torso y: 80–280
         vest_det = [{"class": "vest", "cx": 50, "cy": 180}]
         result = associate_ppe(person, vest_det)
         assert result["vest"] is True
 
     def test_boots_in_feet_region_detected(self):
         """Boots centroid in feet region → True"""
-        person = (0, 0, 100, 500)   # height=500 → feet y: 400–500
+        person = (0, 0, 100, 500)  # height=500 → feet y: 400–500
         boots_det = [{"class": "boots", "cx": 50, "cy": 460}]
         result = associate_ppe(person, boots_det)
         assert result["boots"] is True
@@ -85,10 +85,10 @@ class TestAssociatePPE:
         person = (0, 0, 200, 500)
         ph = 500
         dets = [
-            {"class": "helmet", "cx": 100, "cy": 30},       # head: 0–100
-            {"class": "vest",   "cx": 100, "cy": 200},      # torso: 100–350
-            {"class": "gloves", "cx": 100, "cy": 300},      # hands: 250–400
-            {"class": "boots",  "cx": 100, "cy": 450},      # feet: 400–500
+            {"class": "helmet", "cx": 100, "cy": 30},  # head: 0–100
+            {"class": "vest", "cx": 100, "cy": 200},  # torso: 100–350
+            {"class": "gloves", "cx": 100, "cy": 300},  # hands: 250–400
+            {"class": "boots", "cx": 100, "cy": 450},  # feet: 400–500
         ]
         result = associate_ppe(person, dets)
         assert result["helmet"] is True
@@ -106,13 +106,14 @@ class TestAssociatePPE:
         """Unknown class → ignored, no KeyError"""
         person = (0, 0, 200, 500)
         dets = [{"class": "unknown_gear", "cx": 100, "cy": 100}]
-        result = associate_ppe(person, dets)   # should not raise
+        result = associate_ppe(person, dets)  # should not raise
         assert "unknown_gear" not in result
 
 
 # ================================================================
 # Tests for: Compliance Engine (Phase 6)
 # ================================================================
+
 
 def evaluate_compliance(worker_ppe_status, required_ppe):
     """
@@ -185,13 +186,15 @@ class TestEvaluateCompliance:
 # Tests for: Temporal Confirmation Logic (Phase 6)
 # ================================================================
 
+
 class WorkerState:
     """Inline copy for testing."""
+
     def __init__(self, confirm_threshold=5, cooldown_seconds=10):
-        self.violation_frames  = {}
+        self.violation_frames = {}
         self.CONFIRM_THRESHOLD = confirm_threshold
-        self.COOLDOWN_SECONDS  = cooldown_seconds
-        self.triggered_alerts  = []
+        self.COOLDOWN_SECONDS = cooldown_seconds
+        self.triggered_alerts = []
 
     def update(self, track_id, compliance_result, timestamp=0):
         if not compliance_result["compliant"]:
