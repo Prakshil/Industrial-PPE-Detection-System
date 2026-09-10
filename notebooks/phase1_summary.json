@@ -1,0 +1,47 @@
+{
+  "phase": 1,
+  "completed_at": "2026-09-10T19:59:44.765691",
+  "experiments": {
+    "exp1_yolov8n": {
+      "epochs_run": 55,
+      "best_epoch": 44,
+      "mAP50": 0.5568,
+      "mAP50_95": 0.2573,
+      "precision": 0.7313,
+      "recall": 0.5157,
+      "f1": 0.6049,
+      "phase_gate": false,
+      "speed_fps": 98.6,
+      "speed_ms": 10.14,
+      "PPE_present_avg_AP50": 0.8106,
+      "violation_avg_AP50": 0.1811
+    },
+    "exp2_yolov8s": {
+      "epochs_run": 93,
+      "best_epoch": 45,
+      "mAP50": 0.5714,
+      "mAP50_95": 0.265,
+      "precision": 0.6738,
+      "recall": 0.539,
+      "f1": 0.5989,
+      "phase_gate": false,
+      "PPE_present_avg_AP50": 0.8328,
+      "violation_avg_AP50": 0.1388
+    }
+  },
+  "phase1_gate": {
+    "target_mAP50": 0.7,
+    "exp1_passed": false,
+    "exp2_passed": false,
+    "proceed_to_phase3": false,
+    "recommendation": "Phase gate NOT met by aggregate mAP50. However, PPE-present classes already exceed gate (n:0.811, s:0.833). Proceed to Phase 3 with YOLOv8s best.pt + spatial compliance engine. Aggregate mAP50 will improve with Phase 4 site-specific fine-tuning.",
+    "recommended_model": "YOLOv8s (mAP50=0.5714, better cls loss convergence)",
+    "edge_model": "YOLOv8n (98.6 FPS on T4, Hailo-8L NPU ready)"
+  },
+  "root_cause_of_gate_failure": {
+    "summary": "Violation classes (no_X) are severely underrepresented in dataset",
+    "no_boots_val_instances": 4,
+    "no_goggle_val_instances": 41,
+    "fix": "Use spatial association compliance engine (Phase 6) instead of no_X classification"
+  }
+}

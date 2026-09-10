@@ -1,0 +1,125 @@
+{
+  "YOLOv8n": {
+    "model": "YOLOv8n",
+    "run_dir": "/content/drive/MyDrive/PPE_Research/phase1/yolov8n_baseline",
+    "status": "complete",
+    "epochs_run": 55,
+    "best_epoch": 44,
+    "mAP50": 0.5568,
+    "mAP50_95": 0.2573,
+    "precision": 0.7313,
+    "recall": 0.5157,
+    "val_cls_loss": 1.1733,
+    "val_box_loss": 1.8891,
+    "f1": 0.6049,
+    "phase_gate": false,
+    "per_class_AP50": {
+      "helmet": {
+        "AP50": 0.827,
+        "AP50_95": 0.4479
+      },
+      "gloves": {
+        "AP50": 0.7806,
+        "AP50_95": 0.3563
+      },
+      "vest": {
+        "AP50": 0.8243,
+        "AP50_95": 0.4638
+      },
+      "boots": {
+        "AP50": 0.7752,
+        "AP50_95": 0.4299
+      },
+      "goggles": {
+        "AP50": 0.7974,
+        "AP50_95": 0.3386
+      },
+      "none": {
+        "AP50": 0.4427,
+        "AP50_95": 0.1711
+      },
+      "Person": {
+        "AP50": 0.8594,
+        "AP50_95": 0.4539
+      },
+      "no_helmet": {
+        "AP50": 0.3547,
+        "AP50_95": 0.1222
+      },
+      "no_goggle": {
+        "AP50": 0.173,
+        "AP50_95": 0.043
+      },
+      "no_gloves": {
+        "AP50": 0.1902,
+        "AP50_95": 0.0599
+      },
+      "no_boots": {
+        "AP50": 0.0066,
+        "AP50_95": 0.0007
+      }
+    }
+  },
+  "YOLOv8s": {
+    "model": "YOLOv8s",
+    "run_dir": "/content/drive/MyDrive/PPE_Research/phase1/yolov8s_baseline",
+    "status": "complete",
+    "epochs_run": 93,
+    "best_epoch": 45,
+    "mAP50": 0.5714,
+    "mAP50_95": 0.265,
+    "precision": 0.6738,
+    "recall": 0.539,
+    "val_cls_loss": 1.0803,
+    "val_box_loss": 1.8804,
+    "f1": 0.5989,
+    "phase_gate": false,
+    "per_class_AP50": {
+      "helmet": {
+        "AP50": 0.8281,
+        "AP50_95": 0.4271
+      },
+      "gloves": {
+        "AP50": 0.8125,
+        "AP50_95": 0.3725
+      },
+      "vest": {
+        "AP50": 0.8458,
+        "AP50_95": 0.482
+      },
+      "boots": {
+        "AP50": 0.7838,
+        "AP50_95": 0.4432
+      },
+      "goggles": {
+        "AP50": 0.8137,
+        "AP50_95": 0.3811
+      },
+      "none": {
+        "AP50": 0.4717,
+        "AP50_95": 0.1468
+      },
+      "Person": {
+        "AP50": 0.9129,
+        "AP50_95": 0.4643
+      },
+      "no_helmet": {
+        "AP50": 0.291,
+        "AP50_95": 0.0978
+      },
+      "no_goggle": {
+        "AP50": 0.0913,
+        "AP50_95": 0.0252
+      },
+      "no_gloves": {
+        "AP50": 0.159,
+        "AP50_95": 0.0449
+      },
+      "no_boots": {
+        "AP50": 0.014,
+        "AP50_95": 0.0053
+      }
+    }
+  },
+  "extracted_at": "2026-09-10T14:20:42.667762"
+}

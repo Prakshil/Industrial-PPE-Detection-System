@@ -1,0 +1,65 @@
+# =========================================================
+# PPE Detection System — .gitignore
+# =========================================================
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environments
+.env
+.venv/
+venv/
+ENV/
+
+# Jupyter / Colab
+.ipynb_checkpoints/
+
+# ---- ML Model Weights (TOO LARGE for Git) ----
+# Store these in Google Drive instead
+*.pt
+*.pth
+*.hef
+*.onnx
+*.ncnn
+*.tflite
+*.engine
+
+# ---- Training Run Artifacts ----
+runs/
+wandb/
+
+# ---- Dataset directories ----
+# Datasets are downloaded by Ultralytics / Roboflow at runtime
+datasets/
+data/
+
+# ---- Keep these CSVs (small, important for reproducibility) ----
+!notebooks/results*.csv
+!notebooks/phase1_metrics.json
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Temp
+*.tmp
+*.bak
