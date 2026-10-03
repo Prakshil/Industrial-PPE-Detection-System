@@ -1,0 +1,50 @@
+{
+  "model": "models\\yolov8s_baseline_best.pt",
+  "tracking_runs": [
+    {
+      "video": "data\\site_videos\\clip1.mp4",
+      "output": "runs/track"
+    },
+    {
+      "video": "data\\site_videos\\clip2.mp4",
+      "output": "runs/track"
+    },
+    {
+      "video": "data\\site_videos\\clip3.mp4",
+      "output": "runs/track"
+    }
+  ],
+  "validation": {
+    "map50": 0.510917784927297,
+    "map50_95_per_class": [
+      0.48951628834983,
+      0.38503308173707457,
+      0.5004925463407907,
+      0.3874653970979648,
+      0.3033691898599463,
+      0.11356209213341713,
+      0.4261995871669604,
+      0.04414353481908078,
+      0.041031086954432666,
+      0.03146394800994724,
+      0.002339941299008496
+    ],
+    "class_names": [
+      "helmet",
+      "gloves",
+      "vest",
+      "boots",
+      "goggles",
+      "none",
+      "Person",
+      "no_helmet",
+      "no_goggle",
+      "no_gloves",
+      "no_boots"
+    ]
+  },
+  "hard_negative_review": {
+    "images_reviewed": 28,
+    "images_with_detections": 27
+  }
+}
