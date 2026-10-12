@@ -1,6 +1,13 @@
 # Phase 1 Run — Full Analysis Report
 ### YOLOv8n Baseline · 88/150 Epochs · Construction-PPE Dataset
 
+> **SUPERSEDED.** This report captures an **intermediate, incomplete** YOLOv8n run (88 of 150 epochs). It is kept for history only. The training was later resumed and stopped by early stopping, and a YOLOv8s experiment was completed. The authoritative final results are:
+> - `notebooks/results/phase1_metrics.json`
+> - `notebooks/results/phase1_summary.json`
+> - `Project_Status_Master_Report.md`
+>
+> Final numbers (YOLOv8n: 55 epochs, best epoch 44, mAP50 0.5568; YOLOv8s: 93 epochs, best epoch 45, mAP50 0.5714) supersede every number below.
+
 ---
 
 ## What Was Wrong (Root Cause)
@@ -86,18 +93,21 @@ The train cls loss and val cls loss are tracking together (gap is small and cons
 
 ## Generated Outputs
 
-All saved in [`notebooks/analysis_output/`](file:///c:/Users/Prakshil/OneDrive/Desktop/PPE/Ppe_detection/notebooks/analysis_output/):
+All saved in `notebooks/analysis_output/`:
 
 | File | Contents |
 |---|---|
-| [`fig1_training_dashboard.png`](file:///c:/Users/Prakshil/OneDrive/Desktop/PPE/Ppe_detection/notebooks/analysis_output/fig1_training_dashboard.png) | Full 8-panel training dashboard (mAP, Precision, Recall, F1, LR, all losses) |
-| [`fig2_diagnosis.png`](file:///c:/Users/Prakshil/OneDrive/Desktop/PPE/Ppe_detection/notebooks/analysis_output/fig2_diagnosis.png) | Trend projection, precision volatility band, cls loss convergence |
-| [`fig3_top15_epochs.png`](file:///c:/Users/Prakshil/OneDrive/Desktop/PPE/Ppe_detection/notebooks/analysis_output/fig3_top15_epochs.png) | Top 15 epochs by mAP50 — formatted table |
-| [`fig4_issues_and_actions.png`](file:///c:/Users/Prakshil/OneDrive/Desktop/PPE/Ppe_detection/notebooks/analysis_output/fig4_issues_and_actions.png) | Issue tracker with priority colours |
+| `fig1_training_dashboard.png` | Training dashboard (mAP, Precision, Recall, F1, LR, losses) |
+| `fig2_perclass_breakdown.png` | Per-class and violation-class breakdown |
+| `fig2_diagnosis.png` | Trend projection, precision volatility band, cls loss convergence |
+| `fig3_instances_vs_ap50.png` | Validation instance count vs per-class AP50 |
+| `fig3_top15_epochs.png` | Top 15 epochs by mAP50 |
+| `fig4_capability_vs_aggregate.png` | PPE-present capability vs aggregate mAP |
+| `fig5_action_plan.png` | Prioritized action plan |
 
 Updated JSON files:
-- [`notebooks/phase1_metrics.json`](file:///c:/Users/Prakshil/OneDrive/Desktop/PPE/Ppe_detection/notebooks/phase1_metrics.json) — now contains real values
-- [`notebooks/phase1_summary.json`](file:///c:/Users/Prakshil/OneDrive/Desktop/PPE/Ppe_detection/notebooks/phase1_summary.json) — updated with real metrics
+- `notebooks/results/phase1_metrics.json` — now contains real values
+- `notebooks/results/phase1_summary.json` — updated with real metrics
 
 ---
 
@@ -123,12 +133,12 @@ Updated JSON files:
 cd "c:\Users\Prakshil\OneDrive\Desktop\PPE\Ppe_detection"
 python notebooks/analyze_phase1.py
 ```
-This regenerates all 4 figures and updates the JSON files with final values.
+This regenerates the diagnostic figures and updates the JSON files with the current values.
 
 ### Step 5 — Git commit
 ```powershell
-git add notebooks/results.csv notebooks/phase1_metrics.json notebooks/phase1_summary.json notebooks/analysis_output/
-git commit -m "results: Phase 1 YOLOv8n baseline — 88ep analysis + corrected plots"
+git add notebooks/results/ notebooks/analysis_output/
+git commit -m "results: Phase 1 YOLOv8n baseline analysis + corrected plots"
 ```
 
 ---

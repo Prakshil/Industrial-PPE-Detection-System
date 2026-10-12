@@ -3,15 +3,15 @@
   "tracking_runs": [
     {
       "video": "data\\site_videos\\clip1.mp4",
-      "output": "runs/track"
+      "output": "runs/detect/runs/track/clip1.avi"
     },
     {
       "video": "data\\site_videos\\clip2.mp4",
-      "output": "runs/track"
+      "output": "runs/detect/runs/track/clip2.avi"
     },
     {
       "video": "data\\site_videos\\clip3.mp4",
-      "output": "runs/track"
+      "output": "runs/detect/runs/track/clip3.avi"
     }
   ],
   "validation": {

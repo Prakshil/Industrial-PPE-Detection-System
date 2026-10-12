@@ -1,6 +1,11 @@
-# tests/ — PPE Detection System Unit Tests
+# tests/ — PPE Detection System Tests
 
-This directory contains unit tests for the compliance engine logic.
+This directory currently contains **specification tests**, not tests of implemented
+production modules. The production code under `ppe_monitor/` is still empty scaffolding,
+so `tests/test_compliance.py` defines **inline reference implementations** of the
+association, compliance, and temporal-confirmation logic and tests those. They pin down
+the intended behaviour so the real modules can be implemented against a known contract
+later.
 
 ## Running Tests
 
@@ -8,18 +13,24 @@ This directory contains unit tests for the compliance engine logic.
 pytest tests/ -v
 ```
 
-## What's tested (Phase 1)
+## What is currently tested
 
-| Module | Test File | Tests |
+| Concept | Test File | Reference implementation exercised |
 |---|---|---|
-| Compliance Engine | `test_compliance.py` | `evaluate_compliance()`, `associate_ppe()`, `WorkerState` |
+| PPE-to-person association | `test_compliance.py` | `associate_ppe()` |
+| Zone compliance rules | `test_compliance.py` | `evaluate_compliance()` |
+| Temporal confirmation | `test_compliance.py` | `WorkerState` |
+
+These reference functions are inline copies only. When the real modules are implemented
+(planned Phase 5-6), the tests should be repointed at the production code and the inline
+copies removed.
 
 ## What gets added as phases complete
 
 | Phase | What Gets Tested |
 |---|---|
-| Phase 5 | ByteTrack wrapper, PPE-person IoU association |
-| Phase 6 | Zone policy loading, per-zone compliance |
+| Phase 5 | ByteTrack wrapper, PPE-person IoU association (production module) |
+| Phase 6 | Zone policy loading, per-zone compliance, temporal confirmation |
 | Phase 7 | Attendance deduplication logic |
 | Phase 8 | MQTT event JSON schema validation |
 | Phase 9 | Edge model output parsing |

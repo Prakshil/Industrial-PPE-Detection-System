@@ -12,6 +12,7 @@ __pycache__/
 dist/
 build/
 .eggs/
+.pytest_cache/
 
 # Environments
 .env
@@ -41,9 +42,11 @@ wandb/
 datasets/
 data/
 
-# ---- Keep these CSVs (small, important for reproducibility) ----
-!notebooks/results*.csv
-!notebooks/phase1_metrics.json
+# ---- Keep Phase 1 result artifacts (small, important for reproducibility) ----
+# Guard the tracked results folder against any broad CSV/JSON ignore rule.
+!notebooks/results/*.csv
+!notebooks/results/*.json
+!notebooks/results/*.png
 
 # OS
 .DS_Store

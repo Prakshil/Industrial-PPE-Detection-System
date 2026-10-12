@@ -1,7 +1,11 @@
 """
-Phase 1 Final Analysis — YOLOv8n Run 2 (55 epochs, early-stopped)
-Generates all publication-quality plots from results.csv + per-class AP.
-Run: python notebooks/analyze_phase1_final.py
+Phase 1 analysis — YOLOv8n Run 2 (55 epochs, early stopped, patience=20).
+
+Reads the raw training curve from ``notebooks/results/results.csv`` and the
+per-class validation AP values captured on Colab, then writes the YOLOv8n
+diagnostic figures to ``notebooks/analysis_output/``.
+
+Run: python notebooks/analyze_phase1.py
 """
 import pandas as pd
 import numpy as np
@@ -12,12 +16,27 @@ import matplotlib.gridspec as gridspec
 import matplotlib.patches as mpatches
 from matplotlib.colors import LinearSegmentedColormap
 import json, os
+import sys
 from pathlib import Path
 
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+except (AttributeError, ValueError):
+    pass
+
 SCRIPT_DIR = Path(__file__).parent
-CSV_PATH   = SCRIPT_DIR / "results.csv"
+RESULTS_DIR = SCRIPT_DIR / "results"
 OUT_DIR    = SCRIPT_DIR / "analysis_output"
 OUT_DIR.mkdir(exist_ok=True)
+
+
+def data_path(name: str) -> Path:
+    """Resolve an artifact in notebooks/results/ with a legacy fallback."""
+    candidate = RESULTS_DIR / name
+    return candidate if candidate.exists() else SCRIPT_DIR / name
+
+
+CSV_PATH = data_path("results.csv")
 
 plt.rcParams.update({
     'font.family': 'DejaVu Sans', 'font.size': 10,
@@ -58,9 +77,14 @@ vbox    = df['val/box_loss'].values
 tcls    = df['train/cls_loss'].values
 tbox    = df['train/box_loss'].values
 
-best_idx   = np.argmax(map50)
+best_idx   = int(np.argmax(map50))
 best_epoch = int(epochs[best_idx])
 best_map   = float(map50[best_idx])
+n_epochs   = int(epochs[-1]) if len(epochs) else 0
+train_hours = float(df['time'].iloc[-1]) / 3600.0 if 'time' in df.columns else float('nan')
+
+ppe_present_ap = np.mean([v['AP50'] for v in PER_CLASS.values() if v['group'] == 'PPE Present'])
+violation_ap   = np.mean([v['AP50'] for v in PER_CLASS.values() if v['group'] == 'Violation'])
 
 def smooth(y, w=5):
     k = np.exp(-0.5*((np.arange(w)-w//2)/(w/4))**2); k/=k.sum()
@@ -69,10 +93,10 @@ def smooth(y, w=5):
 print("="*65)
 print(" Phase 1 — YOLOv8n Final Analysis")
 print("="*65)
-print(f"  Epochs run      : 55 (early stopped, best @ ep {best_epoch})")
+print(f"  Epochs run      : {n_epochs} (early stopped, best @ ep {best_epoch})")
 print(f"  Best mAP50      : {best_map:.4f}  (gate: 0.70)")
-print(f"  PPE-present avg : 0.8116  ← actual model capability")
-print(f"  Violation avg   : 0.1919  ← dragging aggregate down")
+print(f"  PPE-present avg : {ppe_present_ap:.4f}  ← actual model capability")
+print(f"  Violation avg   : {violation_ap:.4f}  ← dragging aggregate down")
 print(f"  Root cause      : Dataset imbalance in violation classes")
 print()
 
@@ -82,7 +106,8 @@ print()
 fig = plt.figure(figsize=(20, 12), facecolor='white')
 fig.suptitle(
     'YOLOv8n Baseline — Phase 1 Final Training Dashboard\n'
-    'Construction-PPE Dataset  ·  55 Epochs (Early Stopped @ patience=20)  ·  Best mAP50=0.554 @ ep35',
+    f'Construction-PPE Dataset  ·  {n_epochs} Epochs (Early Stopped, patience=20)  ·  '
+    f'Best mAP50={best_map:.4f} @ ep{best_epoch}',
     fontsize=13, fontweight='bold', y=0.98
 )
 gs = gridspec.GridSpec(2, 3, figure=fig, hspace=0.42, wspace=0.35)
@@ -93,9 +118,9 @@ ax.plot(epochs, map50, color='#1565C0', alpha=0.25, lw=1)
 ax.plot(epochs, smooth(map50), color='#1565C0', lw=2.5, label='mAP50 (smoothed)')
 ax.plot(epochs, map5095, color='#42A5F5', alpha=0.6, lw=1.5, ls='-.', label='mAP50-95')
 ax.axhline(0.70, color='#00C853', ls='--', lw=2, label='Phase gate (0.70)')
-ax.axhline(0.8116, color='#6A1B9A', ls=':', lw=1.5, label='PPE-present avg (0.81)')
+ax.axhline(ppe_present_ap, color='#6A1B9A', ls=':', lw=1.5, label=f'PPE-present avg ({ppe_present_ap:.2f})')
 ax.axvline(best_epoch, color='gray', ls=':', alpha=0.7)
-ax.axvline(55, color='red', ls='--', alpha=0.5, lw=1.2, label='Early stop (ep55)')
+ax.axvline(n_epochs, color='red', ls='--', alpha=0.5, lw=1.2, label=f'Early stop (ep{n_epochs})')
 ax.scatter([best_epoch],[best_map], s=90, color='#1565C0', zorder=5,
            label=f'Best: {best_map:.4f} @ ep{best_epoch}')
 ax.fill_between(epochs, map50, alpha=0.07, color='#1565C0')
@@ -107,20 +132,20 @@ ax.legend(loc='upper left', fontsize=8.5, ncol=2)
 ax_k = fig.add_subplot(gs[0, 2])
 ax_k.axis('off')
 txt = (
-    "YOLOv8n · Run 2  (ep 1-55)\n"
+    f"YOLOv8n · Run 2  (ep 1-{n_epochs})\n"
     "─────────────────────────\n"
-    "Epochs        :  55 (early stopped)\n"
-    "Best epoch    :  35\n"
+    f"Epochs        :  {n_epochs} (early stopped)\n"
+    f"Best epoch    :  {best_epoch}\n"
     "─────────────────────────\n"
-    "mAP50 (all)   :  0.554  ← aggregate\n"
-    "mAP50 (PPE+)  :  0.812  ← capability\n"
-    "mAP50 (no_X)  :  0.192  ← violation\n"
+    f"mAP50 (all)   :  {best_map:.3f}  ← aggregate\n"
+    f"mAP50 (PPE+)  :  {ppe_present_ap:.3f}  ← capability\n"
+    f"mAP50 (no_X)  :  {violation_ap:.3f}  ← violation\n"
     "─────────────────────────\n"
-    "Precision     :  0.648\n"
-    "Recall        :  0.541\n"
-    "F1            :  0.590\n"
+    f"Precision     :  {prec[best_idx]:.3f}\n"
+    f"Recall        :  {rec[best_idx]:.3f}\n"
+    f"F1            :  {f1[best_idx]:.3f}\n"
     "─────────────────────────\n"
-    "Train time    :  0.38 h\n"
+    f"Train time    :  {train_hours:.2f} h\n"
     "Phase gate    :  IN PROGRESS\n"
     "─────────────────────────\n"
     "Next step: YOLOv8s + data\n"
@@ -172,7 +197,8 @@ print(f"  Saved: fig1_training_dashboard.png")
 fig2, axes2 = plt.subplots(1, 2, figsize=(18, 7), facecolor='white')
 fig2.suptitle(
     'Per-Class AP50 Breakdown — YOLOv8n Baseline\n'
-    'Key Finding: PPE-present classes avg 0.81 | Violation classes avg 0.19',
+    f'Key Finding: PPE-present classes avg {ppe_present_ap:.2f} | '
+    f'Violation classes avg {violation_ap:.2f}',
     fontsize=13, fontweight='bold'
 )
 
@@ -203,8 +229,8 @@ ax.set_xlabel('AP50'); ax.set_xlim(0, 1.15)
 ax.set_title('AP50 by Class (sorted)', fontweight='bold')
 
 legend_patches = [
-    mpatches.Patch(color='#1565C0', label='PPE Present (avg: 0.81)'),
-    mpatches.Patch(color='#C62828', label='Violation / no_X (avg: 0.19)'),
+    mpatches.Patch(color='#1565C0', label=f'PPE Present (avg: {ppe_present_ap:.2f})'),
+    mpatches.Patch(color='#C62828', label=f'Violation / no_X (avg: {violation_ap:.2f})'),
     mpatches.Patch(color='#546E7A', label='Misc'),
 ]
 ax.legend(handles=legend_patches, fontsize=9, loc='lower right')
@@ -260,6 +286,54 @@ print(f"  Saved: fig2_perclass_breakdown.png")
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# FIGURE 2b — Training Diagnosis (trend projection, precision volatility, loss)
+# ════════════════════════════════════════════════════════════════════════════
+fig2b, axes2b = plt.subplots(1, 3, figsize=(19, 6), facecolor='white')
+fig2b.suptitle('YOLOv8n Training Diagnosis — Convergence, Volatility & Trend',
+               fontsize=13, fontweight='bold')
+
+# Trend projection
+ax = axes2b[0]
+ax.plot(epochs, map50, color='#1565C0', alpha=0.25, lw=1)
+ax.plot(epochs, smooth(map50), color='#1565C0', lw=2.5, label='mAP50 (smoothed)')
+proj_ep = np.linspace(epochs[0], 100, 100)
+proj_coef = np.polyfit(epochs, map50, 1)
+ax.plot(proj_ep, np.clip(np.polyval(proj_coef, proj_ep), 0, 1), color='gray', ls='--', lw=1.5,
+        label=f'Linear trend (slope={proj_coef[0]:+.4f}/ep)')
+ax.axhline(0.70, color='#00C853', ls='--', lw=1.8, label='Phase gate (0.70)')
+ax.axvline(best_epoch, color='gray', ls=':', alpha=0.7)
+ax.set_title('Trend Projection', fontweight='bold')
+ax.set_xlabel('Epoch'); ax.set_ylabel('mAP50'); ax.set_ylim(0, 0.85)
+ax.legend(fontsize=8)
+
+# Precision volatility band
+ax = axes2b[1]
+window = min(5, max(2, len(epochs)))
+roll_std = pd.Series(prec).rolling(window, min_periods=1).std().values
+ax.plot(epochs, prec, color='#2E7D32', alpha=0.3, lw=1, label='Precision')
+ax.plot(epochs, smooth(prec), color='#2E7D32', lw=2, label='Precision (smoothed)')
+ax.fill_between(epochs, smooth(prec) - roll_std, smooth(prec) + roll_std,
+                color='#2E7D32', alpha=0.15, label=f'±{window}-epoch rolling std')
+ax.set_title('Precision Volatility Band', fontweight='bold')
+ax.set_xlabel('Epoch'); ax.set_ylabel('Precision'); ax.set_ylim(0, 1.05)
+ax.legend(fontsize=8)
+
+# Cls loss convergence
+ax = axes2b[2]
+ax.plot(epochs, tcls, color='#C62828', lw=1.8, label=f'Train cls (last:{tcls[-1]:.3f})')
+ax.plot(epochs, vcls, color='#C62828', lw=1.8, ls='--', alpha=0.7, label=f'Val cls (last:{vcls[-1]:.3f})')
+ax.axvline(best_epoch, color='gray', ls=':', alpha=0.7)
+ax.set_title('Classification Loss Convergence', fontweight='bold')
+ax.set_xlabel('Epoch'); ax.set_ylabel('Cls loss')
+ax.legend(fontsize=8)
+
+plt.tight_layout()
+plt.savefig(OUT_DIR/'fig2_diagnosis.png')
+plt.close()
+print(f"  Saved: fig2_diagnosis.png")
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # FIGURE 3 — Instance Count vs AP50 (shows imbalance clearly)
 # ════════════════════════════════════════════════════════════════════════════
 fig3, ax3 = plt.subplots(figsize=(12, 6), facecolor='white')
@@ -282,13 +356,15 @@ x_fit = np.linspace(1, 260, 200)
 ax3.plot(x_fit, np.clip(np.polyval(z, np.log(x_fit+1)), 0, 1),
          color='gray', ls='--', lw=1.5, alpha=0.6, label='Log trend')
 
+pearson_r = float(np.corrcoef(np.log(xs + 1), ys)[0, 1])
 ax3.axhline(0.70, color='#00C853', ls='--', lw=1.8, label='Phase gate (0.70)')
 ax3.axhline(0.50, color='orange',  ls=':', lw=1.5, label='Weak threshold (0.50)')
 ax3.set_xlabel('Number of validation instances (log scale)')
 ax3.set_ylabel('AP50')
 ax3.set_xscale('log')
 ax3.set_ylim(0, 1.0)
-ax3.set_title('More instances → better AP50 (Pearson r ≈ 0.82)', fontweight='bold')
+ax3.set_title(f'More instances → better AP50 (log-instance Pearson r ≈ {pearson_r:.2f})',
+              fontweight='bold')
 
 legend_patches = [
     mpatches.Patch(color='#1565C0', label='PPE Present'),
@@ -315,12 +391,46 @@ print(f"  Saved: fig3_instances_vs_ap50.png")
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# FIGURE 4 — What the 0.554 means vs actual capability (publication figure)
+# FIGURE 3b — Top 15 Epochs by mAP50
+# ════════════════════════════════════════════════════════════════════════════
+fig3b, ax3b = plt.subplots(figsize=(12, 7), facecolor='white')
+fig3b.suptitle('Top 15 Epochs by mAP50 — YOLOv8n Baseline', fontsize=13, fontweight='bold')
+ax3b.axis('off')
+
+order = np.argsort(map50)[::-1][:15]
+cell_text = [
+    [f"{int(epochs[i])}", f"{map50[i]:.4f}", f"{map5095[i]:.4f}",
+     f"{prec[i]:.4f}", f"{rec[i]:.4f}", f"{f1[i]:.4f}"]
+    for i in order
+]
+table = ax3b.table(
+    cellText=cell_text,
+    colLabels=['Epoch', 'mAP50', 'mAP50-95', 'Precision', 'Recall', 'F1'],
+    loc='center', cellLoc='center',
+)
+table.auto_set_font_size(False)
+table.set_fontsize(10)
+table.scale(1.0, 1.5)
+for (row, _col), cell in table.get_celld().items():
+    if row == 0:
+        cell.set_facecolor('#1565C0')
+        cell.set_text_props(color='white', fontweight='bold')
+    elif int(order[row - 1]) == best_idx:
+        cell.set_facecolor('#C8E6C9')
+
+plt.tight_layout()
+plt.savefig(OUT_DIR/'fig3_top15_epochs.png')
+plt.close()
+print(f"  Saved: fig3_top15_epochs.png")
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# FIGURE 4 — What the aggregate mAP50 means vs actual capability (publication figure)
 # ════════════════════════════════════════════════════════════════════════════
 fig4, axes4 = plt.subplots(1, 2, figsize=(16, 6), facecolor='white')
 fig4.suptitle(
-    'Aggregate mAP50=0.554 Understates Model Capability\n'
-    'PPE Detection (core task) averages 0.81 AP50',
+    f'Aggregate mAP50={best_map:.3f} Understates Model Capability\n'
+    f'PPE Detection (core task) averages {ppe_present_ap:.2f} AP50',
     fontsize=13, fontweight='bold'
 )
 
@@ -336,9 +446,9 @@ all_col = [GROUP_COLORS[PER_CLASS[c]['group']] for c in all_cls]
 
 x = np.arange(len(all_cls))
 bars = ax.bar(x, all_ap, color=all_col, alpha=0.85, width=0.7, edgecolor='white')
-ax.axhline(0.554, color='black', ls='-', lw=2, label='Aggregate mAP50 (0.554)')
+ax.axhline(best_map, color='black', ls='-', lw=2, label=f'Aggregate mAP50 ({best_map:.3f})')
 ax.axhline(0.70,  color='#00C853', ls='--', lw=2, label='Phase gate (0.70)')
-ax.axhline(0.8116, color='#1565C0', ls=':', lw=2, label='PPE-present avg (0.81)')
+ax.axhline(ppe_present_ap, color='#1565C0', ls=':', lw=2, label=f'PPE-present avg ({ppe_present_ap:.2f})')
 
 ax.set_xticks(x)
 ax.set_xticklabels(all_cls, rotation=35, ha='right', fontsize=9)
@@ -355,7 +465,7 @@ ax.text(div + 0.05, 0.92, 'Violation\nclasses →', fontsize=8, color='#C62828')
 ax2 = axes4[1]
 ax2.axis('off')
 fix_text = (
-    "WHY mAP50=0.554 is NOT the real capability\n"
+    f"WHY aggregate mAP50={best_map:.3f} is NOT the real capability\n"
     "─────────────────────────────────────────\n\n"
     "PPE PRESENT CLASSES (core task):\n"
     "  helmet   AP50=0.829   n=201\n"
@@ -364,13 +474,13 @@ fix_text = (
     "  boots    AP50=0.778   n=151\n"
     "  gloves   AP50=0.780   n=136\n"
     "  goggles  AP50=0.796   n= 47\n"
-    "  AVG:     0.812\n\n"
+    f"  AVG:     {ppe_present_ap:.3f}\n\n"
     "VIOLATION CLASSES (dragging avg down):\n"
     "  no_helmet   AP50=0.370   n= 45\n"
     "  no_gloves   AP50=0.204   n= 56\n"
     "  no_goggle   AP50=0.186   n= 41\n"
     "  no_boots    AP50=0.006   n=  4  ← 4 instances!\n"
-    "  AVG:     0.192\n\n"
+    f"  AVG:     {violation_ap:.3f}\n\n"
     "─────────────────────────────────────────\n"
     "SOLUTION (implemented in Phase 6):\n\n"
     "Do NOT rely on the model to detect\n"
@@ -402,16 +512,17 @@ fig5.suptitle('Phase 1 Complete — Action Plan to Reach mAP50 >= 0.70',
 ax5.axis('off')
 
 actions = [
-    ("IMMEDIATE", "Run YOLOv8s (Cell 5 in notebook)",
-     "Same 150 epochs, same hyperparams. YOLOv8s has 3× more params — "
-     "may push PPE-present classes to 0.85+ and violation classes to 0.30+.\n"
-     "Expected aggregate: 0.60–0.68. Checkpoint writes to Drive every 5 epochs.",
-     "#BBDEFB", "1"),
-    ("IMMEDIATE", "Check if early stop was premature",
-     "patience=20 stopped at ep55, best at ep35. But the training curve wasn't "
-     "plateaued — it was oscillating. Try patience=40 for the YOLOv8s run.\n"
-     "Add to Cell 5: patience=40",
-     "#BBDEFB", "2"),
+    ("COMPLETE", "YOLOv8s baseline finished (93 ep, mAP50 0.5714)",
+     "YOLOv8s was trained with the same recipe and reached 0.5714 aggregate mAP50 "
+     "(up from 0.5568), lifting PPE-present classes to 0.833.\n"
+     "It did NOT close the aggregate gap — the remaining gap is violation-class data "
+     "scarcity, not model capacity. See notebooks/results/phase1_metrics.json.",
+     "#C8E6C9", "1"),
+    ("COMPLETE", "Early-stop patience standardized to 30",
+     f"The original YOLOv8n run used patience=20 and stopped at ep{n_epochs} "
+     f"(best ep{best_epoch}) while the curve was still oscillating.\n"
+     "The notebook recipe now uses patience=30 for consistent, reproducible stopping.",
+     "#C8E6C9", "2"),
     ("SHORT-TERM", "Augment violation class data",
      "no_boots has ONLY 4 val instances — model cannot learn from 4 examples.\n"
      "→ Source 200+ images of workers without each PPE item.\n"
@@ -425,7 +536,7 @@ actions = [
      "→ Removes dependency on underrepresented violation class data entirely.",
      "#C8E6C9", "4"),
     ("REPORTING", "Update paper evaluation table",
-     "Report BOTH aggregate mAP50 (0.554) and PPE-present mAP50 (0.812).\n"
+     f"Report BOTH aggregate mAP50 ({best_map:.3f}) and PPE-present mAP50 ({ppe_present_ap:.3f}).\n"
      "The aggregate is honest; the PPE-present metric is more meaningful for the task.\n"
      "Compare against: SafeYOLO (0.71 aggregate), construction-PPE papers (0.63–0.72).",
      "#C8E6C9", "5"),
@@ -446,7 +557,7 @@ for i, (urgency, title, body, color, num) in enumerate(actions):
 
 leg = [mpatches.Patch(color='#BBDEFB', label='Do now'),
        mpatches.Patch(color='#FFF9C4', label='Short-term'),
-       mpatches.Patch(color='#C8E6C9', label='Architectural / reporting')]
+       mpatches.Patch(color='#C8E6C9', label='Completed / architectural / reporting')]
 ax5.legend(handles=leg, loc='lower right', fontsize=9, framealpha=0.9)
 
 plt.tight_layout()
@@ -458,17 +569,16 @@ print()
 print("="*65)
 print(" KEY FINDINGS")
 print("="*65)
-ppe_present = [v['AP50'] for k,v in PER_CLASS.items() if v['group']=='PPE Present']
-violation   = [v['AP50'] for k,v in PER_CLASS.items() if v['group']=='Violation']
 print(f"  Aggregate mAP50      : {best_map:.4f}  (phase gate: 0.70)")
-print(f"  PPE-present avg AP50 : {np.mean(ppe_present):.4f}  ← actual detection capability")
-print(f"  Violation avg AP50   : {np.mean(violation):.4f}  ← dragging average down")
+print(f"  PPE-present avg AP50 : {ppe_present_ap:.4f}  ← actual detection capability")
+print(f"  Violation avg AP50   : {violation_ap:.4f}  ← dragging average down")
 print(f"  no_boots instances   : 4   ← insufficient to learn from")
-print(f"  Training time        : 0.38 h (55 ep)")
+print(f"  Training time        : {train_hours:.2f} h ({n_epochs} ep)")
 print()
-print("  The model CAN detect PPE correctly (0.81 avg).")
-print("  The 0.554 gate failure is a DATASET problem, not a model problem.")
+print(f"  The model CAN detect PPE correctly ({ppe_present_ap:.2f} avg).")
+print(f"  The {best_map:.3f} gate failure is a DATASET problem, not a model problem.")
 print()
-print("  IMMEDIATE ACTION:")
-print("  1. Run Cell 5 (YOLOv8s) with patience=40")
-print("  2. Keep this notebook running (Drive-native, safe from disconnects)")
+print("  NEXT ACTION:")
+print("  1. YOLOv8s baseline is complete (93 ep, mAP50=0.5714) — see analyze_phase1_final.py")
+print("  2. Violation detection is delegated to the Phase 5-6 spatial compliance engine")
+print("  3. Collect approved site data for violation classes before Phase 4 fine-tuning")

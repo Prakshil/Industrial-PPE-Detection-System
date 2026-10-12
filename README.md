@@ -90,7 +90,7 @@ Raw videos, hard-negative images, datasets, model weights, and generated `runs/`
 
 ## Setup
 
-Use Python 3.10 or 3.11 for the CI-supported environment. Create and activate a virtual environment, then install dependencies:
+Use Python 3.10–3.12 (the CI matrix covers 3.10, 3.11, and 3.12). Create and activate a virtual environment, then install dependencies:
 
 ```powershell
 python -m venv .venv
@@ -141,8 +141,11 @@ The validator:
 - processes `clip1.mp4`, `clip2.mp4`, and `clip3.mp4`;
 - writes annotated video under `runs/`;
 - evaluates the requested dataset split using the real YAML;
-- preserves the model class-name order in `docs/phase3_metrics.json`; and
-- writes hard-negative predictions to `docs/phase3_hard_negative_review.csv`.
+- preserves the model class-name order in `docs/phase3_metrics.json`;
+- writes raw hard-negative predictions to `docs/phase3_hard_negative_predictions.csv` (it never overwrites the human-reviewed `docs/phase3_hard_negative_review.csv`); and
+- reports both aggregate and per-class metrics, plus separate group means for PPE-present and violation classes when per-class AP is available.
+
+Optional per-class confidence filtering is available through `--filter-per-class` (with `--per-class-conf`); the defaults are tuned per class and are documented in `scripts/phase3_validate.py`.
 
 Human review is still required. Do not treat detection counts as false-positive counts, and do not infer PPE-person association from detector output alone.
 

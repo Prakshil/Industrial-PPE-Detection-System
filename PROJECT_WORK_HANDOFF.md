@@ -280,7 +280,7 @@ The main finding is that the baseline can detect obvious PPE in construction sce
 
 ## 4. Files Added by Us and Pushed
 
-These files were pushed to the remote `phase-3-validation` branch in commit `8dc28b0`:
+These files were first pushed to the remote `phase-3-validation` branch in commit `8dc28b0`:
 
 ```text
 docs\model_registry.md
@@ -303,7 +303,7 @@ Remote branch:
 origin/phase-3-validation
 ```
 
-The default `main` branch still contains the original project history. To bring these files into `main`, open a Pull Request from `phase-3-validation` into `main` and merge it after review.
+That branch has since been merged into `main` (merge commit `e8619a8`, "Merge pull request #1 from Prakshil/phase-3-validation"). The default branch is now `main`, and it contains all of the Phase 3 documentation and tooling listed above. There is no outstanding Phase 3 pull request.
 
 ## 5. Files Not Pushed Deliberately
 
@@ -326,21 +326,9 @@ Reasons:
 
 These paths are excluded by `.gitignore`.
 
-The following files also remain local/uncommitted because they were not part of the approved pushed change:
+The working prompt and scratch planning files used during the Phase 3 work were never committed and are not part of this repository. They are intentionally not listed here as repository content.
 
-```text
-AGENT_HANDOFF_PROMPT.md
-PPE_MEGA_PLAN_Phase3_to_12.md
-scripts\fetch_phase3_media.py
-```
-
-The notebook has an existing local modification and was not included in the Phase 3 commit:
-
-```text
-notebooks\01_yolo_baseline.ipynb
-```
-
-That avoids overwriting or mixing unrelated notebook changes.
+The notebook `notebooks\01_yolo_baseline.ipynb` is tracked in the repository. It was kept out of the original Phase 3 commit to avoid mixing unrelated changes, but it is now part of `main`.
 
 ## 6. What Was Not Done
 
@@ -369,7 +357,7 @@ The existing `ppe_monitor/` folders are scaffolding only. Do not describe them a
 Before Phase 4:
 
 1. Review this handoff and the README with the project owner.
-2. Merge `phase-3-validation` into `main` through a Pull Request if the evidence is accepted.
+2. Confirm the already-merged Phase 3 evidence is accepted (`phase-3-validation` was merged into `main` in `e8619a8`).
 3. Preserve the fixed 11-class contract until a new class contract is formally approved.
 4. Use the 6 hard-negative errors and the cap sequence to collect approved site examples.
 5. Extract only logged failure frames and keep source/consent/hash metadata outside Git.

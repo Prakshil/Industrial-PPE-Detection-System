@@ -1,6 +1,8 @@
 # Industrial PPE Detection System — Full Project Analysis
 ### Research Grade · September 2026
 
+> **PARTIALLY SUPERSEDED.** The literature review, competitive positioning, and CI/CD guidance remain useful. The Phase 1 status and results sections below were written against an **intermediate 88-epoch run** and are outdated. Final baseline results: YOLOv8n (55 epochs, best epoch 44, mAP50 0.5568) and YOLOv8s (93 epochs, best epoch 45, mAP50 0.5714). Authoritative files: `notebooks/results/phase1_metrics.json`, `notebooks/results/phase1_summary.json`, and `Project_Status_Master_Report.md`. Phase 3 diagnostic validation is also complete; see `docs/phase3_review_summary.md`.
+
 ---
 
 ## 1. Project Context Summary
@@ -8,7 +10,7 @@
 | Field | Detail |
 |---|---|
 | **Official Title** | Real-Time Industrial PPE Detection System: YOLOv8 Deep Learning with IoT-Based Safety Monitoring |
-| **Current Phase** | Phase 1 complete (YOLOv8n Baseline Training — 88 epochs run, early-stopped) |
+| **Current Phase** | Phase 1-2 baseline complete (YOLOv8n 55 ep, YOLOv8s 93 ep); Phase 3 diagnostic validation complete |
 | **Training Platform** | Google Colab · Tesla T4 GPU · CUDA 12.8 |
 | **Framework** | Ultralytics 8.4.143 · PyTorch 2.11.0 · Python 3.13 |
 | **Target Edge Hardware** | Raspberry Pi 5 (8 GB RAM) + Hailo AI HAT+ (13–26 TOPS NPU) |
@@ -34,7 +36,7 @@ No reviewed paper combines all of: NPU-accelerated edge inference + temporal PPE
 
 ---
 
-## 2. Phase 1 Results — YOLOv8n Baseline (88 epochs)
+## 2. Phase 1 Results — YOLOv8n Baseline (88 epochs) *(superseded — see banner)*
 
 > The training ran on **Google Colab T4 GPU**. The `results.csv` shows 88 epochs completed before the notebook was stopped (likely manually — patience=20 means auto-stop would have triggered if plateau was sustained).
 
@@ -145,7 +147,11 @@ Image 3: 2 nones, 1 Person, 1 no_gloves                  ← Missing gloves dete
 
 ## 5. What Your Phase 1 Results Tell You
 
-### Status: 🟡 Needs Completion
+### Status: superseded — both baselines completed
+
+The intermediate issues listed below were resolved when training was resumed and the YOLOv8s experiment was completed. Final aggregate mAP50 did not reach the 0.70 gate (YOLOv8n 0.5568, YOLOv8s 0.5714); the root cause is violation-class data scarcity, and the architectural fix is the spatial compliance engine rather than `no_X` classification. See `Project_Status_Master_Report.md` and `docs/phase3_review_summary.md`.
+
+### Original intermediate assessment (88-epoch run)
 
 | Issue | Detail | Action |
 |---|---|---|
@@ -168,19 +174,19 @@ This would **meet the ≥0.70 Phase 2 gate** to proceed to Phase 3.
 
 ## 6. CI/CD Pipeline Analysis
 
-### Current Pipeline: [`pr-check.yml`](file:///c:/Users/Prakshil/OneDrive/Desktop/PPE/Ppe_detection/.github/workflows/pr-check.yml)
+### Current Pipeline: `.github/workflows/pr-check.yml`
 
 **What it does:**
 - Triggers on PR and push to `main`/`master`
-- Python matrix: 3.9, 3.10, 3.11
-- Linting: `black`, `isort`, `flake8`
-- Testing: `pytest` (commented out — no tests yet)
+- Python matrix: 3.10, 3.11, 3.12
+- Installs only lightweight lint/test tools (not the full GPU ML stack)
+- Linting: `black`, `isort`, `flake8` across `ppe_monitor/`, `tests/`, and `scripts/`
+- Validates workflow YAML files
+- Testing: `pytest tests/ -v`
 
-**What it's missing for a research project:**
-- No `requirements.txt` install (commented out)
+**What it's still missing for a research project:**
 - No ML-specific checks (model file validation, metric thresholds)
 - No notebook linting (`nbqa`)
-- `pytest` disabled
 
 ---
 
@@ -390,12 +396,12 @@ This is **essential for the paper** — `goggles` and `boots` will likely be the
 
 | Model | Dataset | mAP50 | Precision | Recall | mAP50-95 | FPS (Device) | Status |
 |---|---|---|---|---|---|---|---|
-| YOLOv8n | Construction-PPE | ~0.575* | ~0.571* | ~0.550* | ~0.265* | ~250 (T4) | 🟡 Incomplete (88/150 ep) |
-| YOLOv8s | Construction-PPE | TBD | TBD | TBD | TBD | TBD | ⬜ Not started |
+| YOLOv8n | Construction-PPE | 0.5568 | 0.7313 | 0.5157 | 0.2573 | 98.6 (T4) | ✅ Complete (55 ep, best 44) |
+| YOLOv8s | Construction-PPE | 0.5714 | 0.6738 | 0.5390 | 0.2650 | ~50 (T4, est.) | ✅ Complete (93 ep, best 45); Phase 3 validated |
 | YOLOv8s | Merged + Site | TBD | TBD | TBD | TBD | TBD | ⬜ Phase 4 |
-| YOLOv8n INT8 | Merged + Site | TBD | TBD | TBD | **Target: 15+ FPS** | RPi 5 + Hailo-8L | ⬜ Phase 9 |
+| YOLOv8n INT8 | Merged + Site | TBD | TBD | TBD | TBD | **Target: 15+ FPS** | RPi 5 + Hailo-8L | ⬜ Phase 9 |
 
-*Values at epoch 88, training incomplete.
+Final values from `notebooks/results/phase1_metrics.json` (aggregate mAP50; 0.70 gate not met).
 
 ---
 

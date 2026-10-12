@@ -11,11 +11,24 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import matplotlib.patches as mpatches
 import json, os
+import sys
 from pathlib import Path
 
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+except (AttributeError, ValueError):
+    pass
+
 SCRIPT_DIR = Path(__file__).parent
+RESULTS_DIR = SCRIPT_DIR / "results"
 OUT_DIR    = SCRIPT_DIR / "analysis_output"
 OUT_DIR.mkdir(exist_ok=True)
+
+
+def results_path(name: str) -> Path:
+    """Resolve an artifact in notebooks/results/ with a legacy fallback."""
+    candidate = RESULTS_DIR / name
+    return candidate if candidate.exists() else SCRIPT_DIR / name
 
 plt.rcParams.update({
     'font.family': 'DejaVu Sans', 'font.size': 10,
@@ -26,12 +39,12 @@ plt.rcParams.update({
 })
 
 # ── Load data ─────────────────────────────────────────────────────────────────
-df1 = pd.read_csv(SCRIPT_DIR / "results.csv");           df1.columns = df1.columns.str.strip()
-df2 = pd.read_csv(SCRIPT_DIR / "results (1).csv");       df2.columns = df2.columns.str.strip()
+df1 = pd.read_csv(results_path("results.csv"));           df1.columns = df1.columns.str.strip()
+df2 = pd.read_csv(results_path("results (1).csv"));       df2.columns = df2.columns.str.strip()
 # Drop duplicate epoch rows from YOLOv8s (resume artifact at row 17)
 df2 = df2.drop_duplicates(subset='epoch', keep='first').sort_values('epoch').reset_index(drop=True)
 
-with open(SCRIPT_DIR / "phase1_metrics.json") as f:
+with open(results_path("phase1_metrics.json")) as f:
     M = json.load(f)
 
 m1 = M['YOLOv8n']
@@ -39,7 +52,7 @@ m2 = M['YOLOv8s']
 
 # Speed benchmark
 try:
-    with open(SCRIPT_DIR / "exp1_speed_benchmark.json") as f:
+    with open(results_path("exp1_speed_benchmark.json")) as f:
         spd = json.load(f)
 except:
     spd = {"avg_ms": 10.14, "p95_ms": 11.67, "fps": 98.6, "device": "Tesla T4"}
@@ -405,7 +418,15 @@ summary = {
         'target_mAP50': 0.70,
         'exp1_passed': m1['mAP50'] >= 0.70,
         'exp2_passed': m2['mAP50'] >= 0.70,
-        'proceed_to_phase3': m1['mAP50'] >= 0.70 or m2['mAP50'] >= 0.70,
+        'aggregate_gate_passed': m1['mAP50'] >= 0.70 or m2['mAP50'] >= 0.70,
+        'proceed_to_phase3': True,
+        'proceed_basis': (
+            'Aggregate mAP50 gate was NOT met, but the project explicitly proceeds '
+            'on PPE-present capability (n:{n:.3f}, s:{s:.3f} AP50, both above the '
+            '0.70 gate) plus the Phase 6 spatial compliance engine. Phase 3 has been '
+            'executed under this basis; the aggregate metric is expected to rise with '
+            'Phase 4 site-specific fine-tuning.'
+        ).format(n=float(np.mean(ppc1)), s=float(np.mean(ppc2))),
         'recommendation': (
             'Phase gate NOT met by aggregate mAP50. However, PPE-present classes '
             f'already exceed gate (n:{np.mean(ppc1):.3f}, s:{np.mean(ppc2):.3f}). '
@@ -423,9 +444,9 @@ summary = {
     }
 }
 
-with open(SCRIPT_DIR/'phase1_summary.json', 'w') as f:
+with open(results_path("phase1_summary.json"), 'w') as f:
     json.dump(summary, f, indent=2)
-print("  Saved: phase1_summary.json (updated with real data)")
+print("  Saved: results/phase1_summary.json (updated with real data)")
 
 print()
 print("="*65)

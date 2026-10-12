@@ -5,8 +5,6 @@ Phase 1 baseline — tests core logic used in Phases 5 & 6
 Run with:  pytest tests/ -v
 """
 
-import pytest
-
 # ================================================================
 # Tests for: PPE → Person Association Logic (Phase 5)
 # ================================================================
@@ -83,7 +81,6 @@ class TestAssociatePPE:
     def test_multiple_ppe_items_all_detected(self):
         """Multiple PPE items, all in correct regions"""
         person = (0, 0, 200, 500)
-        ph = 500
         dets = [
             {"class": "helmet", "cx": 100, "cy": 30},  # head: 0–100
             {"class": "vest", "cx": 100, "cy": 200},  # torso: 100–350
