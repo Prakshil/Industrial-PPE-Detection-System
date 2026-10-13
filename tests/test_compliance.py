@@ -1,51 +1,16 @@
 """
 Unit tests for the PPE Compliance Engine
-Phase 1 baseline — tests core logic used in Phases 5 & 6
+Tests the production implementations in ppe_monitor/
 
 Run with:  pytest tests/ -v
 """
 
+from ppe_monitor.compliance.engine import WorkerState, ZonePolicy, evaluate_compliance
+from ppe_monitor.tracker.association import associate_ppe
+
 # ================================================================
 # Tests for: PPE → Person Association Logic (Phase 5)
 # ================================================================
-
-
-def associate_ppe(person_bbox, ppe_detections):
-    """
-    Inline copy of the association logic for unit testing.
-    person_bbox = (x1, y1, x2, y2)
-    Returns dict of {ppe_class: True/False}
-    """
-    px1, py1, px2, py2 = person_bbox
-    ph = py2 - py1
-
-    regions = {
-        "head": (px1, py1, px2, py1 + ph * 0.20),
-        "face": (px1, py1 + ph * 0.05, px2, py1 + ph * 0.30),
-        "torso": (px1, py1 + ph * 0.20, px2, py1 + ph * 0.70),
-        "hands": (px1, py1 + ph * 0.50, px2, py1 + ph * 0.80),
-        "feet": (px1, py1 + ph * 0.80, px2, py2),
-    }
-
-    ppe_map = {
-        "helmet": "head",
-        "goggles": "face",
-        "mask": "face",
-        "vest": "torso",
-        "gloves": "hands",
-        "boots": "feet",
-        "harness": "torso",
-    }
-
-    status = {k: False for k in ppe_map}
-    for det in ppe_detections:
-        cls, cx, cy = det["class"], det["cx"], det["cy"]
-        if cls in ppe_map:
-            r = regions[ppe_map[cls]]
-            if r[0] <= cx <= r[2] and r[1] <= cy <= r[3]:
-                status[cls] = True
-
-    return status
 
 
 class TestAssociatePPE:
@@ -112,16 +77,6 @@ class TestAssociatePPE:
 # ================================================================
 
 
-def evaluate_compliance(worker_ppe_status, required_ppe):
-    """
-    Inline copy of the compliance engine for unit testing.
-    required_ppe: list of class names required for the zone.
-    Returns {'compliant': bool, 'missing': list}
-    """
-    missing = [item for item in required_ppe if not worker_ppe_status.get(item, False)]
-    return {"compliant": len(missing) == 0, "missing": missing}
-
-
 class TestEvaluateCompliance:
 
     def test_fully_compliant_worker(self):
@@ -184,27 +139,6 @@ class TestEvaluateCompliance:
 # ================================================================
 
 
-class WorkerState:
-    """Inline copy for testing."""
-
-    def __init__(self, confirm_threshold=5, cooldown_seconds=10):
-        self.violation_frames = {}
-        self.CONFIRM_THRESHOLD = confirm_threshold
-        self.COOLDOWN_SECONDS = cooldown_seconds
-        self.triggered_alerts = []
-
-    def update(self, track_id, compliance_result, timestamp=0):
-        if not compliance_result["compliant"]:
-            key = (track_id, tuple(sorted(compliance_result["missing"])))
-            self.violation_frames[key] = self.violation_frames.get(key, 0) + 1
-            if self.violation_frames[key] == self.CONFIRM_THRESHOLD:
-                self.triggered_alerts.append((track_id, compliance_result["missing"], timestamp))
-        else:
-            for key in list(self.violation_frames):
-                if key[0] == track_id:
-                    del self.violation_frames[key]
-
-
 class TestWorkerState:
 
     def test_alert_not_triggered_before_threshold(self):
@@ -252,3 +186,92 @@ class TestWorkerState:
             ws.update(2, {"compliant": False, "missing": ["vest"]})
         assert len(ws.triggered_alerts) == 1
         assert ws.triggered_alerts[0][0] == 1  # only worker 1
+
+
+# ================================================================
+# Tests for: ZonePolicy (Phase 6)
+# ================================================================
+
+
+class TestZonePolicy:
+
+    def test_loads_from_dict(self):
+        zones = {
+            "main_entry": ["helmet", "vest", "gloves", "boots"],
+            "welding_zone": ["helmet", "face_shield", "gloves"],
+        }
+        policy = ZonePolicy(zones)
+        assert policy.required_ppe("main_entry") == ["helmet", "vest", "gloves", "boots"]
+        assert policy.required_ppe("welding_zone") == ["helmet", "face_shield", "gloves"]
+
+    def test_unknown_zone_returns_empty(self):
+        policy = ZonePolicy({"main_entry": ["helmet"]})
+        assert policy.required_ppe("unknown_zone") == []
+
+
+# ================================================================
+# Integration test: association → compliance → temporal
+# ================================================================
+
+
+class TestAssociationComplianceIntegration:
+
+    def test_full_pipeline_single_worker(self):
+        """End-to-end: person bbox + PPE detections → compliance → alert"""
+        person_bbox = (100, 100, 300, 500)  # height=400
+        ppe_detections = [
+            {"class": "helmet", "cx": 200, "cy": 120},  # head region: 100-180
+            {"class": "vest", "cx": 200, "cy": 250},  # torso region: 180-380
+            {"class": "gloves", "cx": 200, "cy": 350},  # hands region: 300-420
+            {"class": "boots", "cx": 200, "cy": 460},  # feet region: 420-500
+        ]
+
+        # Phase 5: Association
+        ppe_status = associate_ppe(person_bbox, ppe_detections)
+        assert ppe_status["helmet"] is True
+        assert ppe_status["vest"] is True
+        assert ppe_status["gloves"] is True
+        assert ppe_status["boots"] is True
+
+        # Phase 6: Compliance
+        required = ["helmet", "vest", "gloves", "boots"]
+        compliance = evaluate_compliance(ppe_status, required)
+        assert compliance["compliant"] is True
+        assert compliance["missing"] == []
+
+        # Phase 6: Temporal (should not alert when compliant)
+        ws = WorkerState(confirm_threshold=5)
+        for _ in range(10):
+            ws.update(1, compliance, timestamp=0.0)
+        assert len(ws.triggered_alerts) == 0
+
+    def test_full_pipeline_missing_helmet_triggers_after_threshold(self):
+        """Missing helmet → alert after confirm_threshold frames"""
+        person_bbox = (100, 100, 300, 500)
+        ppe_detections = [
+            {"class": "vest", "cx": 200, "cy": 250},
+            {"class": "gloves", "cx": 200, "cy": 350},
+            {"class": "boots", "cx": 200, "cy": 460},
+        ]
+
+        ppe_status = associate_ppe(person_bbox, ppe_detections)
+        assert ppe_status["helmet"] is False
+        assert ppe_status["vest"] is True
+
+        required = ["helmet", "vest", "gloves", "boots"]
+        compliance = evaluate_compliance(ppe_status, required)
+        assert compliance["compliant"] is False
+        assert "helmet" in compliance["missing"]
+
+        ws = WorkerState(confirm_threshold=3, cooldown_seconds=0)
+        # 2 frames — no alert
+        ws.update(1, compliance, timestamp=1.0)
+        ws.update(1, compliance, timestamp=2.0)
+        assert len(ws.triggered_alerts) == 0
+        # 3rd frame — alert fires
+        ws.update(1, compliance, timestamp=3.0)
+        assert len(ws.triggered_alerts) == 1
+        assert ws.triggered_alerts[0] == (1, ["helmet"], 3.0)
+        # 4th frame — no duplicate alert
+        ws.update(1, compliance, timestamp=4.0)
+        assert len(ws.triggered_alerts) == 1
