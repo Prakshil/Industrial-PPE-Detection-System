@@ -2,6 +2,7 @@
 MQTT client for publishing confirmed violation events.
 Publishes to topic: ppe/<zone_id>/violations
 """
+
 from __future__ import annotations
 
 import json
@@ -71,16 +72,14 @@ class MQTTClient:
             return  # Do not block or log when MQTT broker is not running
         topic = f"{self.BASE_TOPIC}/{event.zone_id}/violations"
         payload: dict[str, Any] = {
-            "track_id":   event.track_id,
-            "zone_id":    event.zone_id,
+            "track_id": event.track_id,
+            "zone_id": event.zone_id,
             "missing_ppe": event.missing_ppe,
-            "timestamp":  event.timestamp,
-            "frame":      event.frame_number,
+            "timestamp": event.timestamp,
+            "frame": event.frame_number,
         }
         try:
-            result = self._client.publish(
-                topic, json.dumps(payload), qos=self._qos
-            )
+            result = self._client.publish(topic, json.dumps(payload), qos=self._qos)
             if result.rc != mqtt.MQTT_ERR_SUCCESS:
                 log.warning("MQTT publish failed: rc=%d", result.rc)
         except Exception as exc:
@@ -92,4 +91,3 @@ class MQTTClient:
             self._client.disconnect()
         except Exception:
             pass
-

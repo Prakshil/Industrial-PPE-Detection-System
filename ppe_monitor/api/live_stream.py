@@ -4,6 +4,7 @@ Pre-initializes YOLOv8s detector on CUDA GPU, ByteTrack, Spatial Association, an
 Uses an asynchronous, rate-limited evidence logger so disk I/O in OneDrive NEVER stalls video capture.
 Includes an automatic camera re-sync watchdog so the webcam NEVER drops, freezes, or turns off.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -58,10 +59,23 @@ class AsyncEvidenceLogger:
             # Stamp clear red violation banner on top of the evidence image
             if crop.size > 0:
                 cw = crop.shape[1]
-                missing_str = ", ".join(ev.missing_ppe) if isinstance(ev.missing_ppe, list) else str(ev.missing_ppe)
+                missing_str = (
+                    ", ".join(ev.missing_ppe)
+                    if isinstance(ev.missing_ppe, list)
+                    else str(ev.missing_ppe)
+                )
                 banner_text = f"Worker #{ev.track_id} | VIOLATION: {missing_str.upper()}"
                 cv2.rectangle(crop, (0, 0), (cw, 24), (0, 0, 200), -1)
-                cv2.putText(crop, banner_text, (6, 16), cv2.FONT_HERSHEY_SIMPLEX, 0.40, (255, 255, 255), 1, cv2.LINE_AA)
+                cv2.putText(
+                    crop,
+                    banner_text,
+                    (6, 16),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.40,
+                    (255, 255, 255),
+                    1,
+                    cv2.LINE_AA,
+                )
 
             self.queue.put_nowait((ev, crop, wbox, associations, now))
         except queue.Full:
@@ -81,10 +95,20 @@ class AsyncEvidenceLogger:
                 if crop.size > 0:
                     cv2.imwrite(str(crop_path), crop)
 
-                sha = hashlib.sha256(crop_path.read_bytes()).hexdigest() if crop_path.is_file() else ""
+                sha = (
+                    hashlib.sha256(crop_path.read_bytes()).hexdigest()
+                    if crop_path.is_file()
+                    else ""
+                )
                 ar_item = next((a for a in associations if a.track_id == ev.track_id), None)
-                present_items = [p for p, ok in (ar_item.ppe_present.items() if ar_item else []) if ok]
-                conf_map = {p: det.confidence for p, det in (ar_item.ppe_detections.items() if ar_item else []) if det}
+                present_items = [
+                    p for p, ok in (ar_item.ppe_present.items() if ar_item else []) if ok
+                ]
+                conf_map = {
+                    p: det.confidence
+                    for p, det in (ar_item.ppe_detections.items() if ar_item else [])
+                    if det
+                }
 
                 if self.db:
                     self.db.log_event(
@@ -288,7 +312,13 @@ class LiveWebcamService:
         model_candidates = [
             _BASE_DIR / "weights" / "best.pt",
             _BASE_DIR / "PPE_detection" / "runs" / "ppe_exp_v3" / "ultra" / "weights" / "best.pt",
-            _BASE_DIR / "PPE_detection" / "runs" / "ppe_three_source_v1" / "ultra" / "weights" / "best.pt",
+            _BASE_DIR
+            / "PPE_detection"
+            / "runs"
+            / "ppe_three_source_v1"
+            / "ultra"
+            / "weights"
+            / "best.pt",
             _BASE_DIR / "runs" / "ppe_6class_60eps" / "ultra" / "ultra" / "weights" / "best.pt",
             _BASE_DIR / "yolov8s.pt",
         ]
@@ -307,7 +337,9 @@ class LiveWebcamService:
         if not self.configured_required_ppe:
             self.configured_required_ppe = list(self.policy.get_policy(self.zone_id).required_ppe)
         else:
-            self.policy.update_runtime_policy(self.zone_id, required_ppe=self.configured_required_ppe)
+            self.policy.update_runtime_policy(
+                self.zone_id, required_ppe=self.configured_required_ppe
+            )
         self.engine = ComplianceEngine(self.policy)
         self.viz = Visualizer()
 
@@ -360,7 +392,9 @@ class LiveWebcamService:
                 self.zone_id,
                 required_ppe=required_ppe,
                 confirmation_frames=confirmation_frames,
-                confirmation_seconds=max(0.25, confirmation_frames / 25) if confirmation_frames else None,
+                confirmation_seconds=(
+                    max(0.25, confirmation_frames / 25) if confirmation_frames else None
+                ),
                 alert_cooldown_seconds=cooldown_seconds,
             )
 
@@ -373,9 +407,12 @@ class LiveWebcamService:
                 except Exception:
                     pass
             from ppe_monitor.messaging.arduino_bridge import ArduinoBridge
+
             self.arduino = ArduinoBridge(port)
             connected = bool(self.arduino and self.arduino.ser and self.arduino.ser.is_open)
-            print(f"[LIVE CAM] Arduino serial reconnect on {port}: {'SUCCESS' if connected else 'FAILED'}")
+            print(
+                f"[LIVE CAM] Arduino serial reconnect on {port}: {'SUCCESS' if connected else 'FAILED'}"
+            )
             return connected
 
     def set_buzzer_polarity(self, active_low: bool) -> bool:
@@ -421,7 +458,9 @@ class LiveWebcamService:
 
             self.thread = threading.Thread(target=self._run_capture_loop, daemon=True)
             self.thread.start()
-            print(f"[LIVE CAM] Started zero-lag capture worker on camera {camera_index} (Mode: {test_mode})")
+            print(
+                f"[LIVE CAM] Started zero-lag capture worker on camera {camera_index} (Mode: {test_mode})"
+            )
 
     def stop(self):
         with self.lock:
@@ -454,7 +493,10 @@ class LiveWebcamService:
 
         cam = ThreadedCamera(self.camera_index)
         if not cam.start():
-            self.error_message = cam.error_message or f"Failed to access webcam {self.camera_index}. Ensure no other app is using it."
+            self.error_message = (
+                cam.error_message
+                or f"Failed to access webcam {self.camera_index}. Ensure no other app is using it."
+            )
             print(f"[LIVE CAM ERROR] {self.error_message}")
             with self.lock:
                 self.running = False
@@ -467,7 +509,9 @@ class LiveWebcamService:
         w, h = 640, 480
 
         dev_name = getattr(self.detector, "device", "cuda:0")
-        print(f"[LIVE CAM] Camera {self.camera_index} streaming online on {dev_name} (Zero-Lag Direct Draining).")
+        print(
+            f"[LIVE CAM] Camera {self.camera_index} streaming online on {dev_name} (Zero-Lag Direct Draining)."
+        )
 
         try:
             while self.running:
@@ -488,15 +532,19 @@ class LiveWebcamService:
                     if len(frame_timestamps) > 15:
                         frame_timestamps.pop(0)
                     if len(frame_timestamps) >= 2:
-                        self.current_fps = (len(frame_timestamps) - 1) / max(frame_timestamps[-1] - frame_timestamps[0], 1e-4)
+                        self.current_fps = (len(frame_timestamps) - 1) / max(
+                            frame_timestamps[-1] - frame_timestamps[0], 1e-4
+                        )
 
                     # This laptop camera is an upper-body sensor. Gear outside
                     # the frame is reported as out-of-view, never as missing.
                     zone_policy = self.policy.get_policy(self.zone_id)
                     configured_ppe = list(self.configured_required_ppe or zone_policy.required_ppe)
-                    required_ppe = ["helmet"] if self.test_mode == "helmet_only" else [
-                        item for item in configured_ppe if item in self.observable_ppe
-                    ]
+                    required_ppe = (
+                        ["helmet"]
+                        if self.test_mode == "helmet_only"
+                        else [item for item in configured_ppe if item in self.observable_ppe]
+                    )
                     self.policy.update_runtime_policy(self.zone_id, required_ppe=required_ppe)
 
                     # 1. Detect (runs in ~9.5ms on CUDA)
@@ -529,15 +577,22 @@ class LiveWebcamService:
                     if valid_tracked and associations:
                         primary_worker = max(
                             valid_tracked,
-                            key=lambda p: (p.box[2] - p.box[0]) * (p.box[3] - p.box[1])
+                            key=lambda p: (p.box[2] - p.box[0]) * (p.box[3] - p.box[1]),
                         )
-                        primary_ar = next((a for a in associations if a.track_id == primary_worker.track_id), None)
+                        primary_ar = next(
+                            (a for a in associations if a.track_id == primary_worker.track_id), None
+                        )
                         if primary_ar:
                             for ppe_k in ["helmet", "vest", "boots", "gloves"]:
                                 is_pres = primary_ar.ppe_present.get(ppe_k, False)
                                 det_obj = primary_ar.ppe_detections.get(ppe_k)
-                                c_val = det_obj.confidence if det_obj else (0.85 if is_pres else 0.0)
-                                checklist_snapshot[ppe_k] = {"present": is_pres, "confidence": round(float(c_val), 2)}
+                                c_val = (
+                                    det_obj.confidence if det_obj else (0.85 if is_pres else 0.0)
+                                )
+                                checklist_snapshot[ppe_k] = {
+                                    "present": is_pres,
+                                    "confidence": round(float(c_val), 2),
+                                }
 
                     for tp in tracked_persons:
                         if tp.track_id is None:
@@ -549,26 +604,40 @@ class LiveWebcamService:
                         for ppe_k in ["helmet", "vest", "boots", "gloves"]:
                             pres = ar.ppe_present.get(ppe_k, False) if ar else False
                             det = ar.ppe_detections.get(ppe_k) if ar else None
-                            w_checklist[ppe_k] = {"present": pres, "confidence": det.confidence if det else 0.0}
+                            w_checklist[ppe_k] = {
+                                "present": pres,
+                                "confidence": det.confidence if det else 0.0,
+                            }
 
-                        active_workers_payload.append({
-                            "track_id": tp.track_id,
-                            "bbox": [int(v) for v in tp.box],
-                            "status": st_str,
-                            "checklist": w_checklist,
-                        })
+                        active_workers_payload.append(
+                            {
+                                "track_id": tp.track_id,
+                                "bbox": [int(v) for v in tp.box],
+                                "status": st_str,
+                                "checklist": w_checklist,
+                            }
+                        )
 
                     # 5. Hardware Actuation (ESP32)
                     if self.arduino:
                         try:
-                            states = [self.engine.worker_states.get(tp.track_id) for tp in valid_tracked]
-                            violators = [state for state in states if state and state.status == ComplianceStatus.VIOLATION]
+                            states = [
+                                self.engine.worker_states.get(tp.track_id) for tp in valid_tracked
+                            ]
+                            violators = [
+                                state
+                                for state in states
+                                if state and state.status == ComplianceStatus.VIOLATION
+                            ]
                             if violators:
                                 violator = min(violators, key=lambda state: state.track_id)
                                 self.arduino.send_violation(
                                     violator.track_id, sorted(violator.confirmed_violations)[0]
                                 )
-                            elif any(state and state.status == ComplianceStatus.PENDING for state in states):
+                            elif any(
+                                state and state.status == ComplianceStatus.PENDING
+                                for state in states
+                            ):
                                 self.arduino.send_pending()
                             elif valid_tracked:
                                 self.arduino.send_compliant()
@@ -583,8 +652,12 @@ class LiveWebcamService:
                         for tp in valid_tracked:
                             if now_att - self._last_attendance_log.get(tp.track_id, 0.0) >= 0.5:
                                 ws = self.engine.worker_states.get(tp.track_id)
-                                is_compliant = (ws.status == ComplianceStatus.COMPLIANT) if ws else True
-                                has_viol = (ws.status == ComplianceStatus.VIOLATION) if ws else False
+                                is_compliant = (
+                                    (ws.status == ComplianceStatus.COMPLIANT) if ws else True
+                                )
+                                has_viol = (
+                                    (ws.status == ComplianceStatus.VIOLATION) if ws else False
+                                )
 
                                 thumb_rel = None
                                 if tp.track_id not in self._attendance_snapshots:
@@ -592,7 +665,9 @@ class LiveWebcamService:
                                     if bx2 > bx1 and by2 > by1:
                                         crop = frame[by1:by2, bx1:bx2]
                                         if crop.size > 0:
-                                            thumb_name = f"att_live_{tp.track_id}_{int(now_att)}.jpg"
+                                            thumb_name = (
+                                                f"att_live_{tp.track_id}_{int(now_att)}.jpg"
+                                            )
                                             thumb_path = EVIDENCE_DIR / thumb_name
                                             cv2.imwrite(str(thumb_path), crop)
                                             thumb_rel = f"evidence/{thumb_name}"
@@ -621,11 +696,15 @@ class LiveWebcamService:
                             self.evidence_logger.submit(ev, frame, wbox, associations)
 
                     # 7. Render annotations
-                    annotated = self.viz.draw(frame, tracked_persons, ppe_items, associations, self.engine.worker_states)
+                    annotated = self.viz.draw(
+                        frame, tracked_persons, ppe_items, associations, self.engine.worker_states
+                    )
 
                     # Top-left HUD info banner
                     cv2.rectangle(annotated, (0, 0), (w, 28), (248, 250, 252), -1)
-                    mode_label = "TEST: HELMET ONLY" if self.test_mode == "helmet_only" else "UPPER-BODY PPE"
+                    mode_label = (
+                        "TEST: HELMET ONLY" if self.test_mode == "helmet_only" else "UPPER-BODY PPE"
+                    )
                     cv2.putText(
                         annotated,
                         f"LIVE WEBCAM | {mode_label} | {self.current_fps:.1f} FPS | WORKERS: {len(tracked_persons)}",
@@ -665,13 +744,33 @@ class LiveWebcamService:
     def get_stream_frame(self) -> bytes:
         """Returns the latest annotated JPEG frame bytes or a clean standby placeholder."""
         with self.lock:
-            if self.running and self.latest_jpeg is not None and (time.time() - self.last_frame_time < 3.0):
+            if (
+                self.running
+                and self.latest_jpeg is not None
+                and (time.time() - self.last_frame_time < 3.0)
+            ):
                 return self.latest_jpeg
 
         # Standby graphic when camera is OFF
         img = np.zeros((480, 640, 3), dtype=np.uint8) + 18
-        cv2.putText(img, "STANDBY: CAMERA IS OFF", (145, 225), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (240, 240, 240), 2)
-        cv2.putText(img, "Click [Turn ON Laptop Camera] above to start stream", (110, 260), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (160, 160, 160), 1)
+        cv2.putText(
+            img,
+            "STANDBY: CAMERA IS OFF",
+            (145, 225),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.75,
+            (240, 240, 240),
+            2,
+        )
+        cv2.putText(
+            img,
+            "Click [Turn ON Laptop Camera] above to start stream",
+            (110, 260),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.48,
+            (160, 160, 160),
+            1,
+        )
         _, buf = cv2.imencode(".jpg", img)
         return buf.tobytes()
 

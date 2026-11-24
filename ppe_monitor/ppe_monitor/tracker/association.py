@@ -5,6 +5,7 @@ Maps each tracked person's bounding box into approximate body regions,
 then checks whether detected PPE items fall within the correct region.
 A helmet near a worker's feet does NOT count as a worn helmet.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -16,17 +17,18 @@ from ppe_monitor.detector.yolo_detector import RawDetection
 # Format: (ratio_from_top, ratio_to_top)
 # Accommodates both full-body industrial feeds and laptop webcam upper-body framing
 DEFAULT_BODY_REGIONS: dict[str, tuple[float, float]] = {
-    "helmet":  (-0.35, 0.65),
+    "helmet": (-0.35, 0.65),
     "goggles": (0.00, 0.40),
-    "vest":    (0.15, 0.80),
-    "gloves":  (0.35, 0.95),
-    "boots":   (0.65, 1.10),
+    "vest": (0.15, 0.80),
+    "gloves": (0.35, 0.95),
+    "boots": (0.65, 1.10),
 }
 
 
 @dataclass
 class AssociationResult:
     """PPE association status for a single tracked worker."""
+
     track_id: int
     person_box: tuple[float, float, float, float]
     ppe_present: dict[str, bool] = field(default_factory=dict)
@@ -44,8 +46,10 @@ def _centroid_in_region(
 
 
 def _box_iou(a: tuple, b: tuple) -> float:
-    ix1 = max(a[0], b[0]); iy1 = max(a[1], b[1])
-    ix2 = min(a[2], b[2]); iy2 = min(a[3], b[3])
+    ix1 = max(a[0], b[0])
+    iy1 = max(a[1], b[1])
+    ix2 = min(a[2], b[2])
+    iy2 = min(a[3], b[3])
     inter = max(0.0, ix2 - ix1) * max(0.0, iy2 - iy1)
     area_a = (a[2] - a[0]) * (a[3] - a[1])
     area_b = (b[2] - b[0]) * (b[3] - b[1])
