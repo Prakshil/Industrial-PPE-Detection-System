@@ -1,68 +1,77 @@
 # =========================================================
-# PPE Detection System — .gitignore
+# Industrial PPE Safety System — .gitignore
 # =========================================================
 
-# Python
+# Python & Build
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
 .Python
 *.egg-info/
-dist/
 build/
 .eggs/
 .pytest_cache/
 
-# Environments
+# Virtual Environments
 .env
 .venv/
 venv/
 ENV/
+env/
 
-# Jupyter / Colab
-.ipynb_checkpoints/
-
-# ---- ML Model Weights (TOO LARGE for Git) ----
-# Store these in Google Drive instead
-*.pt
-*.pth
-*.hef
-*.onnx
-*.ncnn
-*.tflite
-*.engine
-
-# ---- Training Run Artifacts ----
-runs/
-wandb/
-
-# ---- Dataset directories ----
-# Datasets are downloaded by Ultralytics / Roboflow at runtime
-datasets/
-data/
-
-# ---- Keep Phase 1 result artifacts (small, important for reproducibility) ----
-# Guard the tracked results folder against any broad CSV/JSON ignore rule.
-!notebooks/results/*.csv
-!notebooks/results/*.json
-!notebooks/results/*.png
-
-# OS
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# IDE
+# IDE & OS
 .vscode/
 .idea/
 *.swp
 *.swo
+.DS_Store
+Thumbs.db
+desktop.ini
 
-# Logs
+# Node / Frontend Dependencies & Logs
+frontend/node_modules/
+frontend/.npm/
 *.log
 logs/
 
-# Temp
+# SQLite Database & Write-Ahead Logs
+events.db*
+*.db
+*.db-shm
+*.db-wal
+
+# Large Datasets (too large for Git)
+dataset_6class/
+merged_negonly/
+merged_three_v2_balanced/
+datasets/
+data/
+
+# Training Run Artifacts & Cache
+runs/
+PPE_detection/
+wandb/
+test_media/
+
+# Runtime Evidence Snapshots
+evidence/*.jpg
+evidence/*.png
+evidence/*.jpeg
+!evidence/.gitkeep
+
+# Uploads directory
+uploads/temp_*.mp4
+uploads/quick_*.mp4
+!uploads/.gitkeep
+!uploads/*.mp4
+
+# Model Weights: Allow tracked production weights in weights/
+*.pt
+!weights/*.pt
+
+# Temp files
 *.tmp
 *.bak
+
+evidence/*.mp4

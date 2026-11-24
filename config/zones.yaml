@@ -1,0 +1,47 @@
+# Zone policy configuration
+# Each zone defines which PPE classes are required.
+# Classes must match your YOLO model's class names exactly.
+
+zones:
+  main_entry:
+    description: "Main entry gate — all visitors and workers"
+    camera_id: "camera_1"
+    required_ppe:
+      - helmet
+      - vest
+      - boots
+    confirmation_frames: 25      # N=25 frames (~850ms) before violation is confirmed
+    alert_cooldown_seconds: 30   # Don't re-alert same worker for 30 seconds
+
+  active_work_zone:
+    description: "Active work zone — general operations"
+    camera_id: "camera_2"
+    required_ppe:
+      - helmet
+      - vest
+      - gloves
+      - boots
+    confirmation_frames: 35
+    confirmation_seconds: 2.0
+    alert_cooldown_seconds: 30
+
+  heavy_machinery_zone:
+    description: "Heavy machinery zone — high risk"
+    camera_id: "camera_3"
+    required_ppe:
+      - helmet
+      - vest
+      - gloves
+      - boots
+      - goggles
+    confirmation_frames: 8
+    alert_cooldown_seconds: 15
+
+# Body region proportions for spatial association
+# These are ratios of the person bounding box height.
+body_regions:
+  helmet:  [-0.35, 0.65]   # accommodates motorcycle helmets and upper-body crops
+  goggles: [0.00, 0.40]
+  vest:    [0.15, 0.80]
+  gloves:  [0.35, 0.95]
+  boots:   [0.65, 1.10]
