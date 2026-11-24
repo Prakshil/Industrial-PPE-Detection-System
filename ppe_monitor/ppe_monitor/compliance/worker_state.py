@@ -96,7 +96,7 @@ class WorkerState:
                 self._missing_since.setdefault(ppe, now)
 
                 if (now - self._missing_since[ppe] >= self.confirmation_seconds) and (
-                    self._missing_counters[ppe] >= min(self.confirmation_frames, 25)
+                    self._missing_counters[ppe] >= min(self.confirmation_frames, 2)
                 ):
                     self._confirmed_violations.add(ppe)
 

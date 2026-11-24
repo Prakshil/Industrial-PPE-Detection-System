@@ -141,3 +141,98 @@ def associate_ppe_to_workers(
         results.append(ar)
 
     return results
+
+
+# ---------------------------------------------------------------------------
+# Backward-compatibility API for tests/test_compliance.py
+# ---------------------------------------------------------------------------
+BBox = tuple[float, float, float, float]
+PPEDetection = dict[str, float]
+PPEStatus = dict[str, bool]
+
+PPE_REGION_MAP: dict[str, str] = {
+    "helmet": "head",
+    "goggles": "face",
+    "mask": "face",
+    "vest": "torso",
+    "gloves": "hands",
+    "boots": "feet",
+    "harness": "torso",
+    "face_shield": "face",
+    "earmuff": "head",
+    "safety_suit": "torso",
+}
+
+
+def _compute_body_regions(person_bbox: BBox) -> dict[str, BBox]:
+    px1, py1, px2, py2 = person_bbox
+    ph = py2 - py1
+    return {
+        "head": (px1, py1, px2, py1 + ph * 0.20),
+        "face": (px1, py1 + ph * 0.05, px2, py1 + ph * 0.30),
+        "torso": (px1, py1 + ph * 0.20, px2, py1 + ph * 0.70),
+        "hands": (px1, py1 + ph * 0.50, px2, py1 + ph * 0.80),
+        "feet": (px1, py1 + ph * 0.80, px2, py2),
+    }
+
+
+def _point_in_box(cx: float, cy: float, box: BBox) -> bool:
+    x1, y1, x2, y2 = box
+    return x1 <= cx <= x2 and y1 <= cy <= y2
+
+
+def associate_ppe(person_bbox: BBox, ppe_detections: list[PPEDetection]) -> PPEStatus:
+    """Associate PPE detections to a person by body-region containment."""
+    regions = _compute_body_regions(person_bbox)
+    status: PPEStatus = {k: False for k in PPE_REGION_MAP}
+
+    for det in ppe_detections:
+        cls = det.get("class")
+        cx = det.get("cx")
+        cy = det.get("cy")
+
+        if cls not in PPE_REGION_MAP:
+            continue
+        if cx is None or cy is None:
+            continue
+
+        region_name = PPE_REGION_MAP[cls]
+        region_box = regions[region_name]
+
+        if _point_in_box(cx, cy, region_box):
+            status[cls] = True
+
+    return status
+
+
+def associate_ppe_multi(
+    person_bboxes: list[BBox], ppe_detections: list[PPEDetection]
+) -> list[PPEStatus]:
+    results: list[PPEStatus] = []
+    used_detections = set()
+
+    for person_bbox in person_bboxes:
+        status = {k: False for k in PPE_REGION_MAP}
+        regions = _compute_body_regions(person_bbox)
+
+        for i, det in enumerate(ppe_detections):
+            if i in used_detections:
+                continue
+
+            cls = det.get("class")
+            cx = det.get("cx")
+            cy = det.get("cy")
+
+            if cls not in PPE_REGION_MAP or cx is None or cy is None:
+                continue
+
+            region_name = PPE_REGION_MAP[cls]
+            region_box = regions[region_name]
+
+            if _point_in_box(cx, cy, region_box):
+                status[cls] = True
+                used_detections.add(i)
+
+        results.append(status)
+
+    return results
