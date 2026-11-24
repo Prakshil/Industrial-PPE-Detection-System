@@ -3,6 +3,7 @@ YOLOv8 detection wrapper.
 Returns detections split into persons and PPE items separately.
 Optimized for zero-lag real-time GPU/CPU edge inference.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -17,13 +18,15 @@ from ultralytics import YOLO
 class RawDetection:
     class_name: str
     confidence: float
-    box: tuple[float, float, float, float]   # x1, y1, x2, y2 in pixels
+    box: tuple[float, float, float, float]  # x1, y1, x2, y2 in pixels
     track_id: Optional[int] = None
 
 
 def _box_iou(a: tuple, b: tuple) -> float:
-    ix1 = max(a[0], b[0]); iy1 = max(a[1], b[1])
-    ix2 = min(a[2], b[2]); iy2 = min(a[3], b[3])
+    ix1 = max(a[0], b[0])
+    iy1 = max(a[1], b[1])
+    ix2 = min(a[2], b[2])
+    iy2 = min(a[3], b[3])
     inter = max(0.0, ix2 - ix1) * max(0.0, iy2 - iy1)
     area_a = max(1e-6, (a[2] - a[0]) * (a[3] - a[1]))
     area_b = max(1e-6, (b[2] - b[0]) * (b[3] - b[1]))
@@ -32,12 +35,13 @@ def _box_iou(a: tuple, b: tuple) -> float:
 
 
 def _box_containment(a: tuple, b: tuple) -> float:
-    ix1 = max(a[0], b[0]); iy1 = max(a[1], b[1])
-    ix2 = min(a[2], b[2]); iy2 = min(a[3], b[3])
+    ix1 = max(a[0], b[0])
+    iy1 = max(a[1], b[1])
+    ix2 = min(a[2], b[2])
+    iy2 = min(a[3], b[3])
     inter = max(0.0, ix2 - ix1) * max(0.0, iy2 - iy1)
     min_area = min(
-        max(1e-6, (a[2] - a[0]) * (a[3] - a[1])),
-        max(1e-6, (b[2] - b[0]) * (b[3] - b[1]))
+        max(1e-6, (a[2] - a[0]) * (a[3] - a[1])), max(1e-6, (b[2] - b[0]) * (b[3] - b[1]))
     )
     return inter / min_area if min_area > 0 else 0.0
 
@@ -81,11 +85,11 @@ class PPEDetector:
         if conf_threshold:
             self.CONF_HELMET = min(self.CONF_HELMET, max(0.15, conf_threshold))
         self.iou = iou_threshold
-        print(f"[YOLO DETECTOR] Initialized on {self.device} (imgsz={self.imgsz}, base_conf={self.conf}, helmet_conf={self.CONF_HELMET})")
+        print(
+            f"[YOLO DETECTOR] Initialized on {self.device} (imgsz={self.imgsz}, base_conf={self.conf}, helmet_conf={self.CONF_HELMET})"
+        )
 
-    def detect(
-        self, frame: np.ndarray
-    ) -> tuple[list[RawDetection], list[RawDetection]]:
+    def detect(self, frame: np.ndarray) -> tuple[list[RawDetection], list[RawDetection]]:
         """
         Returns (persons, ppe_items).
         """
@@ -127,7 +131,11 @@ class PPEDetector:
                 # Filter out spurious tiny background noise
                 if c_val < self.CONF_PERSON:
                     continue
-                if bw < self.MIN_PERSON_WIDTH or bh < self.MIN_PERSON_HEIGHT or barea < self.MIN_PERSON_AREA:
+                if (
+                    bw < self.MIN_PERSON_WIDTH
+                    or bh < self.MIN_PERSON_HEIGHT
+                    or barea < self.MIN_PERSON_AREA
+                ):
                     continue
                 # Reject extreme border slivers
                 if (bx1 <= 4 or bx2 >= fw - 4) and bw < 80:

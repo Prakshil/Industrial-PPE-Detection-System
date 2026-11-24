@@ -7,6 +7,7 @@ The key design:
   - If the PPE appears again, the counter resets to 0 and the violation is cleared.
   - A cooldown prevents repeated alerts for the same active violation.
 """
+
 from __future__ import annotations
 
 import time
@@ -17,8 +18,8 @@ from typing import Optional
 
 class ComplianceStatus(Enum):
     COMPLIANT = "compliant"
-    PENDING   = "pending"     # violation suspected but not yet confirmed
-    VIOLATION = "violation"   # confirmed persistent violation
+    PENDING = "pending"  # violation suspected but not yet confirmed
+    VIOLATION = "violation"  # confirmed persistent violation
 
 
 @dataclass
@@ -33,10 +34,11 @@ class ViolationEvent:
 @dataclass
 class WorkerState:
     """Mutable state for one tracked worker."""
+
     track_id: int
     zone_id: str
     required_ppe: list[str]
-    confirmation_frames: int        # retained for audit compatibility
+    confirmation_frames: int  # retained for audit compatibility
     cooldown_seconds: int
     confirmation_seconds: float = 2.0
     pending_seconds: float = 0.5
@@ -44,7 +46,7 @@ class WorkerState:
     # Internal counters
     _missing_counters: dict[str, int] = field(default_factory=dict)
     _detected_counters: dict[str, int] = field(default_factory=dict)
-    _confirmed_violations: set[str]  = field(default_factory=set)
+    _confirmed_violations: set[str] = field(default_factory=set)
     _last_alert_time: dict[str, float] = field(default_factory=dict)
     _last_logged_violations: set[str] = field(default_factory=set)
     _last_logged_time: float = 0.0
@@ -103,7 +105,10 @@ class WorkerState:
         if confirmed_set:
             time_since_last = now - self._last_logged_time
             # Emit event when violations first appear, change, or after cooldown expires
-            if confirmed_set != self._last_logged_violations or time_since_last >= self.cooldown_seconds:
+            if (
+                confirmed_set != self._last_logged_violations
+                or time_since_last >= self.cooldown_seconds
+            ):
                 self._last_logged_violations = set(confirmed_set)
                 self._last_logged_time = now
                 new_events.append(
@@ -127,7 +132,8 @@ class WorkerState:
         if active_violations:
             return ComplianceStatus.VIOLATION
         if any(
-            self._last_updated - self._missing_since.get(p, self._last_updated) >= self.pending_seconds
+            self._last_updated - self._missing_since.get(p, self._last_updated)
+            >= self.pending_seconds
             for p in self.required_ppe
         ):
             return ComplianceStatus.PENDING
@@ -140,4 +146,3 @@ class WorkerState:
     @property
     def confirmed_violations(self) -> set[str]:
         return set(self._confirmed_violations)
-

@@ -2,6 +2,7 @@
 Compliance Engine — orchestrates WorkerState objects across all tracked workers.
 Workers that disappear from the scene have their state cleaned up after a timeout.
 """
+
 from __future__ import annotations
 
 import time
@@ -25,7 +26,7 @@ class ComplianceEngine:
       4. Prunes states for workers who have left the scene.
     """
 
-    TRACK_TIMEOUT_SECONDS = 10   # remove state if track unseen for this long
+    TRACK_TIMEOUT_SECONDS = 10  # remove state if track unseen for this long
 
     def __init__(self, policy_loader: PolicyLoader):
         self._policy = policy_loader
@@ -89,8 +90,7 @@ class ComplianceEngine:
 
         # Prune stale worker states
         stale = [
-            tid for tid, ts in self._last_seen.items()
-            if now - ts > self.TRACK_TIMEOUT_SECONDS
+            tid for tid, ts in self._last_seen.items() if now - ts > self.TRACK_TIMEOUT_SECONDS
         ]
         for tid in stale:
             self._worker_states.pop(tid, None)
@@ -101,4 +101,3 @@ class ComplianceEngine:
     def get_status(self, track_id: int) -> Optional[ComplianceStatus]:
         ws = self._worker_states.get(track_id)
         return ws.status if ws else None
-

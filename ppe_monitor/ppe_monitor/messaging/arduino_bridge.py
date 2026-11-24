@@ -2,6 +2,7 @@
 Arduino Serial Bridge for Physical Traffic Light, Buzzer & Relay Actuation.
 Sends real-time safety status commands to Arduino/ESP32 over USB Serial.
 """
+
 from __future__ import annotations
 
 import threading
@@ -37,7 +38,9 @@ class ArduinoBridge:
             self._last_state = None
             self.send_idle()
         except Exception as e:
-            print(f"[ARDUINO/ESP WARNING] Could not open serial port {self.port} (ESP32 not attached or in use): {e}")
+            print(
+                f"[ARDUINO/ESP WARNING] Could not open serial port {self.port} (ESP32 not attached or in use): {e}"
+            )
             self.ser = None
 
     def _write(self, msg: str):

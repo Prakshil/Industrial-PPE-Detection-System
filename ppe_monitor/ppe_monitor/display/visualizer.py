@@ -2,6 +2,7 @@
 Visualizer — draws tracked workers, associated PPE status and violation alerts
 on each frame using OpenCV.
 """
+
 from __future__ import annotations
 
 import cv2
@@ -12,16 +13,16 @@ from ppe_monitor.detector.yolo_detector import RawDetection
 from ppe_monitor.tracker.association import AssociationResult
 
 # Colors: BGR
-_GREEN  = (0,  200,   0)
-_RED    = (0,   0,  220)
-_YELLOW = (0, 200,  200)
-_WHITE  = (255, 255, 255)
-_BLACK  = (0,   0,    0)
-_ORANGE = (0, 140,  255)
+_GREEN = (0, 200, 0)
+_RED = (0, 0, 220)
+_YELLOW = (0, 200, 200)
+_WHITE = (255, 255, 255)
+_BLACK = (0, 0, 0)
+_ORANGE = (0, 140, 255)
 
 _STATUS_COLOR = {
     ComplianceStatus.COMPLIANT: _GREEN,
-    ComplianceStatus.PENDING:   _YELLOW,
+    ComplianceStatus.PENDING: _YELLOW,
     ComplianceStatus.VIOLATION: _RED,
 }
 
@@ -38,8 +39,7 @@ def _draw_filled_label(
     (tw, th), baseline = cv2.getTextSize(text, font, font_scale, thickness)
     x, y = origin
     cv2.rectangle(frame, (x, y - th - 4), (x + tw + 4, y + baseline), color, -1)
-    cv2.putText(frame, text, (x + 2, y), font, font_scale, _WHITE, thickness,
-                cv2.LINE_AA)
+    cv2.putText(frame, text, (x + 2, y), font, font_scale, _WHITE, thickness, cv2.LINE_AA)
 
 
 class Visualizer:
@@ -66,8 +66,14 @@ class Visualizer:
             for det in ppe_detections:
                 x1, y1, x2, y2 = (int(v) for v in det.box)
                 cv2.rectangle(out, (x1, y1), (x2, y2), (180, 180, 180), 1)
-                _draw_filled_label(out, f"{det.class_name} {det.confidence:.2f}",
-                                   (x1, y1 - 2), (120, 120, 120), 0.40, 1)
+                _draw_filled_label(
+                    out,
+                    f"{det.class_name} {det.confidence:.2f}",
+                    (x1, y1 - 2),
+                    (120, 120, 120),
+                    0.40,
+                    1,
+                )
 
         # Draw each tracked person (strictly deduplicate so no track_id is ever drawn twice)
         drawn_tids: set[int] = set()
@@ -129,7 +135,9 @@ class Visualizer:
                                 tick = "[X]"
                                 status_desc = "MISSING"
                                 count = ws.missing_counters.get(ppe, 0)
-                                counter_str = f"({count}/{ws.confirmation_frames})" if count > 0 else ""
+                                counter_str = (
+                                    f"({count}/{ws.confirmation_frames})" if count > 0 else ""
+                                )
                             else:
                                 label_color = (140, 140, 140)
                                 tick = "[-]"
@@ -154,8 +162,7 @@ class Visualizer:
 
         # Frame-level summary top-left
         n_violation = sum(
-            1 for ws in worker_states.values()
-            if ws.status == ComplianceStatus.VIOLATION
+            1 for ws in worker_states.values() if ws.status == ComplianceStatus.VIOLATION
         )
         summary = f"Workers: {len(tracked_persons)}  Violations: {n_violation}"
         _draw_filled_label(out, summary, (10, 28), _BLACK, 0.65, 2)
@@ -175,4 +182,3 @@ class Visualizer:
                 hud_y += 18
 
         return out
-

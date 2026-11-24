@@ -3,6 +3,7 @@ Local SQLite event database — offline-first, WAL mode.
 Stores all confirmed violation events with evidence metadata, camera catalogs,
 zone policies, and time-series telemetry.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -145,9 +146,30 @@ class EventDatabase:
         cur.execute("SELECT COUNT(*) as cnt FROM zones")
         if cur.fetchone()["cnt"] == 0:
             initial_zones = [
-                ("main_entry", "Main Entry Gate", "LOW", json.dumps(["helmet", "vest", "boots"]), 25, 30),
-                ("active_work_zone", "Assembly & Welding Bay", "HIGH", json.dumps(["helmet", "vest", "gloves", "boots"]), 25, 30),
-                ("heavy_machinery_zone", "Stamping & Heavy Crane Bay", "EXTREME", json.dumps(["helmet", "vest", "gloves", "boots", "goggles"]), 25, 15),
+                (
+                    "main_entry",
+                    "Main Entry Gate",
+                    "LOW",
+                    json.dumps(["helmet", "vest", "boots"]),
+                    25,
+                    30,
+                ),
+                (
+                    "active_work_zone",
+                    "Assembly & Welding Bay",
+                    "HIGH",
+                    json.dumps(["helmet", "vest", "gloves", "boots"]),
+                    25,
+                    30,
+                ),
+                (
+                    "heavy_machinery_zone",
+                    "Stamping & Heavy Crane Bay",
+                    "EXTREME",
+                    json.dumps(["helmet", "vest", "gloves", "boots", "goggles"]),
+                    25,
+                    15,
+                ),
             ]
             cur.executemany(
                 """INSERT INTO zones (zone_id, name, risk_level, required_ppe, n_frame_confirm, alert_cooldown_seconds)
@@ -167,7 +189,9 @@ class EventDatabase:
     ) -> int:
         """Insert a confirmed violation event. Returns the new row id."""
         event_uuid = str(uuid.uuid4())
-        missing_json = json.dumps(event.missing_ppe if isinstance(event.missing_ppe, list) else [event.missing_ppe])
+        missing_json = json.dumps(
+            event.missing_ppe if isinstance(event.missing_ppe, list) else [event.missing_ppe]
+        )
         present_json = json.dumps(present_ppe or [])
         conf_json = json.dumps(confidence_map or {})
         bbox_json = json.dumps(bbox or [])
@@ -247,7 +271,9 @@ class EventDatabase:
         return results
 
     def get_violation_by_id(self, violation_id: int) -> dict[str, Any] | None:
-        row = self._conn.execute("SELECT * FROM violation_events WHERE id = ?", (violation_id,)).fetchone()
+        row = self._conn.execute(
+            "SELECT * FROM violation_events WHERE id = ?", (violation_id,)
+        ).fetchone()
         if not row:
             return None
         d = dict(row)
@@ -383,8 +409,8 @@ class EventDatabase:
                 last_ping = excluded.last_ping,
                 camera_profile = excluded.camera_profile
             """,
-            (camera_id, zone_id, name, source_url, is_online, time.time(), camera_profile),
-        )
+                (camera_id, zone_id, name, source_url, is_online, time.time(), camera_profile),
+            )
         self._conn.commit()
 
     def log_telemetry(
@@ -454,7 +480,9 @@ class EventDatabase:
 
         avg_workers = round(raw_workers, 1) if raw_workers is not None else 0.0
         avg_comp = round(raw_compliant, 1) if raw_compliant is not None else 0.0
-        compliance_pct = round((avg_comp / max(avg_workers, 1)) * 100, 1) if avg_workers > 0 else 100.0
+        compliance_pct = (
+            round((avg_comp / max(avg_workers, 1)) * 100, 1) if avg_workers > 0 else 100.0
+        )
         avg_fps = round(raw_fps, 1) if raw_fps is not None else 0.0
 
         return {
@@ -624,7 +652,9 @@ class EventDatabase:
         cur.execute("SELECT COUNT(*) as total FROM worker_attendance")
         total = cur.fetchone()["total"]
 
-        cur.execute("SELECT COUNT(*) as passed FROM worker_attendance WHERE compliance_status = 'PASSED'")
+        cur.execute(
+            "SELECT COUNT(*) as passed FROM worker_attendance WHERE compliance_status = 'PASSED'"
+        )
         passed = cur.fetchone()["passed"]
 
         flagged = total - passed

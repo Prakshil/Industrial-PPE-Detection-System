@@ -4,16 +4,20 @@ Assigns rock-solid persistent track_ids to workers across frames.
 Combines IoU with normalized centroid proximity to eliminate track ID jitter
 when workers lean, tilt heads, or adjust PPE in front of the camera.
 """
+
 from __future__ import annotations
 
 import math
 from typing import List, Optional, Tuple
+
 import numpy as np
 
 from ppe_monitor.detector.yolo_detector import RawDetection
 
 
-def _compute_iou(boxA: Tuple[float, float, float, float], boxB: Tuple[float, float, float, float]) -> float:
+def _compute_iou(
+    boxA: Tuple[float, float, float, float], boxB: Tuple[float, float, float, float]
+) -> float:
     xA = max(boxA[0], boxB[0])
     yA = max(boxA[1], boxB[1])
     xB = min(boxA[2], boxB[2])
@@ -30,7 +34,9 @@ def _compute_iou(boxA: Tuple[float, float, float, float], boxB: Tuple[float, flo
     return float(iou)
 
 
-def _compute_similarity(boxA: Tuple[float, float, float, float], boxB: Tuple[float, float, float, float]) -> float:
+def _compute_similarity(
+    boxA: Tuple[float, float, float, float], boxB: Tuple[float, float, float, float]
+) -> float:
     """
     Computes hybrid affinity score combining IoU with normalized centroid distance.
     Prevents ID resets when a worker moves quickly or leans forward/backward.
@@ -48,7 +54,7 @@ def _compute_similarity(boxA: Tuple[float, float, float, float], boxB: Tuple[flo
     # Normalized spatial displacement relative to bounding box scale
     norm_dx = abs(cxA - cxB) / wA
     norm_dy = abs(cyA - cyB) / hA
-    norm_dist = math.sqrt(norm_dx ** 2 + norm_dy ** 2)
+    norm_dist = math.sqrt(norm_dx**2 + norm_dy**2)
 
     # Convert distance to a proximity score [0, 1]
     prox_score = max(0.0, 1.0 - norm_dist / 1.6)

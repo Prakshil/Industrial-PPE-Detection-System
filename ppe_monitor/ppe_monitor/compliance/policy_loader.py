@@ -2,6 +2,7 @@
 Zone Policy Loader — reads YAML configuration and provides required PPE
 lists and per-zone settings to the compliance engine.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -34,7 +35,9 @@ class PolicyLoader:
                 path = cand1
             else:
                 # Fallback 2: inside ppe_monitor/config/
-                cand2 = Path(__file__).resolve().parent.parent.parent / "config" / Path(yaml_path).name
+                cand2 = (
+                    Path(__file__).resolve().parent.parent.parent / "config" / Path(yaml_path).name
+                )
                 if cand2.is_file():
                     path = cand2
         self._path = path
@@ -91,4 +94,3 @@ class PolicyLoader:
             policy.confirmation_seconds = confirmation_seconds
         if alert_cooldown_seconds is not None:
             policy.alert_cooldown_seconds = alert_cooldown_seconds
-

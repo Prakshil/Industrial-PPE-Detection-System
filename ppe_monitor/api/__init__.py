@@ -1,4 +1,3 @@
 """
 Central Safety API package.
 """
-

@@ -2,6 +2,7 @@
 Comprehensive test suite for SQLite EventDatabase and FastAPI Backend.
 Verifies WAL mode, transactions, schema integrity, and API endpoints.
 """
+
 import json
 import os
 import sys
@@ -15,9 +16,9 @@ for p in [str(_ROOT), str(_PM)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
+from api.main import app
 from fastapi.testclient import TestClient
 
-from api.main import app
 from ppe_monitor.compliance.worker_state import ViolationEvent
 from ppe_monitor.persistence.database import EventDatabase
 
@@ -43,7 +44,13 @@ def test_sqlite_wal_and_schema():
         assert "heavy_machinery_zone" in zone_ids
 
         # Test log_event and retrieval
-        ev = ViolationEvent(track_id=99, zone_id="main_entry", missing_ppe=["helmet"], timestamp=time.time(), frame_number=100)
+        ev = ViolationEvent(
+            track_id=99,
+            zone_id="main_entry",
+            missing_ppe=["helmet"],
+            timestamp=time.time(),
+            frame_number=100,
+        )
         row_id = db.log_event(ev, evidence_path="test_crop.jpg", present_ppe=["vest", "boots"])
         assert row_id > 0
 
@@ -54,7 +61,9 @@ def test_sqlite_wal_and_schema():
         assert "helmet" in v["missing_ppe"]
 
         # Test triage update
-        ok = db.update_violation_status(row_id, "CONFIRMED", reviewed_by="Inspector Smith", review_notes="Verified on CCTV")
+        ok = db.update_violation_status(
+            row_id, "CONFIRMED", reviewed_by="Inspector Smith", review_notes="Verified on CCTV"
+        )
         assert ok is True
         v_updated = db.get_violation_by_id(row_id)
         assert v_updated["review_status"] == "CONFIRMED"
@@ -65,7 +74,9 @@ def test_sqlite_wal_and_schema():
         assert db.get_violation_by_id(row_id) is None
 
         # Test zone policy update
-        ok = db.update_zone_policy("main_entry", required_ppe=["helmet", "vest", "boots", "gloves"], n_frame_confirm=7)
+        ok = db.update_zone_policy(
+            "main_entry", required_ppe=["helmet", "vest", "boots", "gloves"], n_frame_confirm=7
+        )
         assert ok is True
         z = db.get_zone("main_entry")
         assert "gloves" in z["required_ppe"]
@@ -105,11 +116,14 @@ def test_fastapi_rest_endpoints():
     assert len(zones) >= 3
 
     # 3. Policy update
-    res = client.post("/api/v1/zones/main_entry/policy", json={
-        "required_ppe": ["helmet", "vest"],
-        "n_frame_confirm": 4,
-        "alert_cooldown_seconds": 20
-    })
+    res = client.post(
+        "/api/v1/zones/main_entry/policy",
+        json={
+            "required_ppe": ["helmet", "vest"],
+            "n_frame_confirm": 4,
+            "alert_cooldown_seconds": 20,
+        },
+    )
     assert res.status_code == 200
     assert res.json()["zone"]["n_frame_confirm"] == 4
 
@@ -122,9 +136,16 @@ def test_fastapi_rest_endpoints():
     # 5. Violations list
     from ppe_monitor.api.main import db
     from ppe_monitor.compliance.worker_state import ViolationEvent
+
     db.log_event(
-        event=ViolationEvent(track_id=99, zone_id="active_work_zone", missing_ppe=["helmet"], timestamp=time.time(), frame_number=10),
-        evidence_path="evidence/test.jpg"
+        event=ViolationEvent(
+            track_id=99,
+            zone_id="active_work_zone",
+            missing_ppe=["helmet"],
+            timestamp=time.time(),
+            frame_number=10,
+        ),
+        evidence_path="evidence/test.jpg",
     )
 
     res = client.get("/api/v1/violations?zone_id=all&status=all&limit=10")
@@ -135,11 +156,14 @@ def test_fastapi_rest_endpoints():
     target_id = violations[0]["id"]
 
     # 6. Triage patch
-    res = client.patch(f"/api/v1/violations/{target_id}/action", json={
-        "action": "CONFIRMED",
-        "reviewed_by": "Safety Officer John",
-        "notes": "Verified worker entering without helmet"
-    })
+    res = client.patch(
+        f"/api/v1/violations/{target_id}/action",
+        json={
+            "action": "CONFIRMED",
+            "reviewed_by": "Safety Officer John",
+            "notes": "Verified worker entering without helmet",
+        },
+    )
     assert res.status_code == 200
     assert res.json()["new_status"] == "CONFIRMED"
 
@@ -164,9 +188,9 @@ def test_fastapi_rest_endpoints():
                 "timestamp": time.time(),
                 "frame_number": 450,
                 "evidence_path": "evidence/sync_test.jpg",
-                "evidence_sha256": "abcdef123456"
+                "evidence_sha256": "abcdef123456",
             }
-        ]
+        ],
     }
     res = client.post("/api/v1/edge/sync", json=sync_payload)
     assert res.status_code == 200
@@ -202,6 +226,7 @@ def test_fastapi_rest_endpoints():
 
     # Clean up test event from database so tests don't leave test artifacts
     from api.main import db as live_db
+
     live_db._conn.execute("DELETE FROM violation_events WHERE evidence_sha256 = 'abcdef123456'")
     live_db._conn.commit()
 

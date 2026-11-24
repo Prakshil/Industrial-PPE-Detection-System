@@ -3,6 +3,7 @@ FastAPI central industrial safety platform backend.
 Provides real-time WebSockets telemetry, RESTful triage endpoints,
 video streaming, and offline-edge database synchronization.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -26,9 +27,21 @@ for _p in [str(_REPO_ROOT), str(_PACKAGE_DIR)]:
 import hashlib
 import html
 import shutil
+
 import cv2
 import numpy as np
-from fastapi import FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import (
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
@@ -57,6 +70,7 @@ try:
 except ImportError:
     from api.live_stream import live_service
 
+
 # WebSocket connection manager
 class ConnectionManager:
     def __init__(self):
@@ -81,9 +95,11 @@ class ConnectionManager:
             if d in self.active_connections:
                 self.active_connections.remove(d)
 
+
 manager = ConnectionManager()
 _last_live_telemetry_log = 0.0
 _event_loop: asyncio.AbstractEventLoop | None = None  # stored at startup for cross-thread use
+
 
 # Background telemetry broadcaster: emits real live edge data from active webcam or video stream
 async def telemetry_broadcaster():
@@ -94,7 +110,11 @@ async def telemetry_broadcaster():
         try:
             now = time.time()
             # Priority: video stream active → use video stream telemetry
-            if video_stream_service.running or (video_stream_service.done and not video_stream_service.error and video_stream_service.frames_processed > 0):
+            if video_stream_service.running or (
+                video_stream_service.done
+                and not video_stream_service.error
+                and video_stream_service.frames_processed > 0
+            ):
                 vs = video_stream_service.get_status()
                 workers = vs.get("workers", [])
                 compliant_c = sum(1 for w in workers if w.get("status") == "COMPLIANT")
@@ -110,7 +130,11 @@ async def telemetry_broadcaster():
                     "workers": workers,
                     "checklist": vs.get("checklist", {}),
                     "test_mode": "all_ppe",
-                    "serial_connected": bool(live_service.arduino and live_service.arduino.ser and live_service.arduino.ser.is_open),
+                    "serial_connected": bool(
+                        live_service.arduino
+                        and live_service.arduino.ser
+                        and live_service.arduino.ser.is_open
+                    ),
                     "source": "video_stream",
                     "frames_processed": vs.get("frames_processed", 0),
                     "total_frames": vs.get("total_frames", 0),
@@ -139,9 +163,12 @@ async def telemetry_broadcaster():
                 }
                 if now - _last_live_telemetry_log >= 5.0:
                     db.log_telemetry(
-                        zone_id=live_service.zone_id, camera_id="cam_live",
-                        active_workers=len(workers), compliant_count=compliant_c,
-                        violation_count=violation_c, fps=status.get("fps", 0.0),
+                        zone_id=live_service.zone_id,
+                        camera_id="cam_live",
+                        active_workers=len(workers),
+                        compliant_count=compliant_c,
+                        violation_count=violation_c,
+                        fps=status.get("fps", 0.0),
                     )
                     _last_live_telemetry_log = now
             else:
@@ -161,7 +188,11 @@ async def telemetry_broadcaster():
                         "gloves": {"present": False, "confidence": 0.0},
                     },
                     "test_mode": live_service.test_mode,
-                    "serial_connected": bool(live_service.arduino and live_service.arduino.ser and live_service.arduino.ser.is_open),
+                    "serial_connected": bool(
+                        live_service.arduino
+                        and live_service.arduino.ser
+                        and live_service.arduino.ser.is_open
+                    ),
                 }
             try:
                 payload["attendance_summary"] = db.get_attendance_summary()
@@ -171,6 +202,7 @@ async def telemetry_broadcaster():
         except Exception as exc:
             print(f"[TELEMETRY ERROR] {exc}")
         await asyncio.sleep(0.4)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -191,6 +223,7 @@ async def lifespan(app: FastAPI):
     task.cancel()
     live_service.stop()
 
+
 app = FastAPI(
     title="Industrial PPE Safety Intelligence API",
     description="Backend API for edge monitoring, real-time telemetry, and safety compliance dashboard",
@@ -206,16 +239,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # ── Pydantic Request Schemas ──────────────────────────────────────────────────
 class ViolationActionRequest(BaseModel):
     action: str = Field(..., description="Action: CONFIRMED, DISMISSED, or FALSE_POSITIVE")
     reviewed_by: str = Field("Safety Officer", description="Name/badge of reviewer")
     notes: str = Field("", description="Review notes or justification")
 
+
 class PolicyUpdateRequest(BaseModel):
     required_ppe: list[str] | None = None
     n_frame_confirm: int | None = Field(default=None, ge=1, le=300)
     alert_cooldown_seconds: int | None = Field(default=None, ge=1, le=3600)
+
 
 class EdgeEventSyncItem(BaseModel):
     track_id: int
@@ -229,9 +265,11 @@ class EdgeEventSyncItem(BaseModel):
     evidence_path: str = ""
     evidence_sha256: str = ""
 
+
 class EdgeSyncBatch(BaseModel):
     edge_node: str = "edge_gateway_01"
     events: list[EdgeEventSyncItem]
+
 
 class LiveCameraControlRequest(BaseModel):
     camera_index: int = 0
@@ -239,17 +277,22 @@ class LiveCameraControlRequest(BaseModel):
     mode: str = "all_ppe"
     camera_profile: str = "upper_body"
 
+
 class LiveCameraModeRequest(BaseModel):
     mode: str = "all_ppe"
+
 
 class LiveCameraProfileRequest(BaseModel):
     camera_profile: str
 
+
 class LiveCameraSerialRequest(BaseModel):
     port: str = "COM10"
 
+
 class BuzzerPolarityRequest(BaseModel):
     active_low: bool = False
+
 
 # ── API Endpoints ─────────────────────────────────────────────────────────────
 @app.get("/api/v1/health", summary="System Health & Status")
@@ -262,9 +305,11 @@ def health() -> dict[str, Any]:
         "timestamp": time.time(),
     }
 
+
 @app.get("/api/v1/camera/live/status", summary="Get status of live webcam edge service")
 def get_live_camera_status() -> dict[str, Any]:
     return live_service.get_status()
+
 
 @app.post("/api/v1/camera/live/start", summary="Start live webcam capture & YOLO edge inference")
 def start_live_camera(req: LiveCameraControlRequest | None = None) -> dict[str, Any]:
@@ -274,15 +319,21 @@ def start_live_camera(req: LiveCameraControlRequest | None = None) -> dict[str, 
     profile = req.camera_profile if req else "upper_body"
     live_service.start(camera_index=idx, serial_port=port, test_mode=mode, camera_profile=profile)
     db.register_or_update_camera(
-        camera_id="cam_live", zone_id=live_service.zone_id, name="💻 Live Camera",
-        source_url=f"webcam://{idx}", is_online=1, camera_profile=profile,
+        camera_id="cam_live",
+        zone_id=live_service.zone_id,
+        name="💻 Live Camera",
+        source_url=f"webcam://{idx}",
+        is_online=1,
+        camera_profile=profile,
     )
     return {"status": "started", "details": live_service.get_status()}
+
 
 @app.post("/api/v1/camera/live/stop", summary="Stop live webcam capture")
 def stop_live_camera() -> dict[str, Any]:
     live_service.stop()
     return {"status": "stopped", "details": live_service.get_status()}
+
 
 @app.post("/api/v1/camera/live/mode", summary="Set inspection mode (helmet_only vs all_ppe)")
 def set_live_camera_mode(req: LiveCameraModeRequest) -> dict[str, Any]:
@@ -291,25 +342,33 @@ def set_live_camera_mode(req: LiveCameraModeRequest) -> dict[str, Any]:
     live_service.set_test_mode(req.mode)
     return {"status": "updated", "mode": live_service.test_mode}
 
+
 @app.post("/api/v1/camera/live/profile", summary="Set physical camera framing profile")
 def set_live_camera_profile(req: LiveCameraProfileRequest) -> dict[str, Any]:
     if not live_service.set_camera_profile(req.camera_profile):
         raise HTTPException(status_code=422, detail="Unsupported camera profile.")
     return {"status": "updated", "camera_profile": live_service.camera_profile}
 
+
 @app.post("/api/v1/camera/live/reconnect-serial", summary="Reconnect ESP32 on specified COM port")
 def reconnect_live_serial(req: LiveCameraSerialRequest) -> dict[str, Any]:
     ok = live_service.reconnect_serial(req.port)
     return {"status": "connected" if ok else "failed", "port": req.port, "is_open": ok}
 
-@app.post("/api/v1/camera/live/buzzer-polarity", summary="Set ESP32 buzzer active-low vs active-high polarity")
+
+@app.post(
+    "/api/v1/camera/live/buzzer-polarity",
+    summary="Set ESP32 buzzer active-low vs active-high polarity",
+)
 def set_live_buzzer_polarity(req: BuzzerPolarityRequest) -> dict[str, Any]:
     ok = live_service.set_buzzer_polarity(req.active_low)
     return {"status": "ok" if ok else "failed", "active_low": req.active_low}
 
+
 @app.get("/api/v1/zones", summary="List all safety zones and policies")
 def get_zones() -> list[dict[str, Any]]:
     return db.get_zones()
+
 
 @app.post("/api/v1/zones/{zone_id}/policy", summary="Update zone safety policy")
 def update_zone_policy(zone_id: str, req: PolicyUpdateRequest) -> dict[str, Any]:
@@ -327,8 +386,11 @@ def update_zone_policy(zone_id: str, req: PolicyUpdateRequest) -> dict[str, Any]
     if not ok:
         raise HTTPException(status_code=404, detail=f"Zone '{zone_id}' not found")
     if zone_id == live_service.zone_id:
-        live_service.update_policy(req.required_ppe, req.n_frame_confirm, req.alert_cooldown_seconds)
+        live_service.update_policy(
+            req.required_ppe, req.n_frame_confirm, req.alert_cooldown_seconds
+        )
     return {"status": "updated", "zone": db.get_zone(zone_id)}
+
 
 @app.get("/api/v1/cameras", summary="List registered edge cameras")
 def get_cameras() -> list[dict[str, Any]]:
@@ -342,14 +404,18 @@ def get_cameras() -> list[dict[str, Any]]:
         }
     ]
 
+
 @app.get("/api/v1/violations", summary="List filterable violation events")
 def get_violations(
     zone_id: str | None = Query("all", description="Filter by zone ID"),
-    status: str | None = Query("all", description="Filter by status (UNREVIEWED, CONFIRMED, DISMISSED, FALSE_POSITIVE)"),
+    status: str | None = Query(
+        "all", description="Filter by status (UNREVIEWED, CONFIRMED, DISMISSED, FALSE_POSITIVE)"
+    ),
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ) -> list[dict[str, Any]]:
     return db.get_violations(zone_id=zone_id, status=status, limit=limit, offset=offset)
+
 
 @app.get("/api/v1/violations/{violation_id}", summary="Get detailed violation by ID")
 def get_violation(violation_id: int) -> dict[str, Any]:
@@ -357,6 +423,7 @@ def get_violation(violation_id: int) -> dict[str, Any]:
     if not v:
         raise HTTPException(status_code=404, detail="Violation record not found")
     return v
+
 
 @app.patch("/api/v1/violations/{violation_id}/action", summary="Triage violation status")
 def update_violation_action(violation_id: int, req: ViolationActionRequest) -> dict[str, Any]:
@@ -370,6 +437,7 @@ def update_violation_action(violation_id: int, req: ViolationActionRequest) -> d
         raise HTTPException(status_code=404, detail="Violation record not found or invalid action")
     return {"status": "success", "violation_id": violation_id, "new_status": req.action.upper()}
 
+
 @app.delete("/api/v1/violations/{violation_id}", summary="Delete a single violation record")
 def delete_violation_record(violation_id: int) -> dict[str, Any]:
     ok = db.delete_violation(violation_id)
@@ -377,27 +445,36 @@ def delete_violation_record(violation_id: int) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail="Violation record not found")
     return {"status": "success", "deleted_id": violation_id}
 
+
 @app.delete("/api/v1/violations", summary="Clear all violation records from ledger")
 def clear_all_violation_records() -> dict[str, Any]:
     count = db.clear_all_violations()
     return {"status": "success", "cleared_count": count}
 
+
 @app.get("/api/v1/telemetry", summary="Aggregated safety metrics and KPI summary")
 def get_telemetry_summary(hours: int = Query(24, ge=1, le=168)) -> dict[str, Any]:
     return db.get_telemetry_summary(hours=hours)
+
 
 @app.post("/api/v1/edge/sync", summary="Batch ingestion from offline edge nodes")
 def sync_edge_events(batch: EdgeSyncBatch) -> dict[str, Any]:
     count = 0
     for item in batch.events:
-        missing_list = item.missing_ppe if isinstance(item.missing_ppe, list) else [item.missing_ppe]
-        dummy_event = type("DummyEvent", (), {
-            "track_id": item.track_id,
-            "zone_id": item.zone_id,
-            "missing_ppe": missing_list,
-            "timestamp": item.timestamp,
-            "frame_number": item.frame_number,
-        })()
+        missing_list = (
+            item.missing_ppe if isinstance(item.missing_ppe, list) else [item.missing_ppe]
+        )
+        dummy_event = type(
+            "DummyEvent",
+            (),
+            {
+                "track_id": item.track_id,
+                "zone_id": item.zone_id,
+                "missing_ppe": missing_list,
+                "timestamp": item.timestamp,
+                "frame_number": item.frame_number,
+            },
+        )()
         db.log_event(
             event=dummy_event,
             evidence_path=item.evidence_path,
@@ -409,7 +486,10 @@ def sync_edge_events(batch: EdgeSyncBatch) -> dict[str, Any]:
         count += 1
     return {"status": "synced", "received_records": count, "edge_node": batch.edge_node}
 
-@app.get("/api/v1/export/audit", summary="Export compliance audit records (CSV / Excel / PDF / JSON)")
+
+@app.get(
+    "/api/v1/export/audit", summary="Export compliance audit records (CSV / Excel / PDF / JSON)"
+)
 def export_audit_log(
     format: str = Query("csv", pattern="^(csv|json|excel|xlsx|pdf)$"),
     zone_id: str | None = "all",
@@ -427,7 +507,9 @@ def export_audit_log(
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=ppe_safety_audit_{int(time.time())}.pdf"},
+            headers={
+                "Content-Disposition": f"attachment; filename=ppe_safety_audit_{int(time.time())}.pdf"
+            },
         )
 
     if format in ("excel", "xlsx"):
@@ -441,9 +523,11 @@ def export_audit_log(
             status_style = (
                 "background-color:#fee2e2;color:#991b1b;font-weight:bold;text-align:center;"
                 if status == "CONFIRMED"
-                else "background-color:#fef3c7;color:#92400e;font-weight:bold;text-align:center;"
-                if status == "UNREVIEWED"
-                else "background-color:#f1f5f9;color:#334155;text-align:center;"
+                else (
+                    "background-color:#fef3c7;color:#92400e;font-weight:bold;text-align:center;"
+                    if status == "UNREVIEWED"
+                    else "background-color:#f1f5f9;color:#334155;text-align:center;"
+                )
             )
             rows_html.append(f"""
             <tr>
@@ -460,7 +544,7 @@ def export_audit_log(
               <td style="font-family:Consolas,monospace;font-size:9pt;">{html.escape(str(v.get("evidence_sha256", "")))}</td>
             </tr>
             """)
-        
+
         excel_content = f"""<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
@@ -514,36 +598,54 @@ def export_audit_log(
         return Response(
             content=excel_content,
             media_type="application/vnd.ms-excel",
-            headers={"Content-Disposition": f"attachment; filename=ppe_safety_audit_{int(time.time())}.xls"},
+            headers={
+                "Content-Disposition": f"attachment; filename=ppe_safety_audit_{int(time.time())}.xls"
+            },
         )
 
     # Standard CSV with UTF-8 BOM for Microsoft Excel on Windows
     output = io.StringIO()
-    output.write("\ufeff") # Byte Order Mark for Excel
+    output.write("\ufeff")  # Byte Order Mark for Excel
     writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
-    writer.writerow([
-        "Event ID", "UUID", "Timestamp (Local)", "Zone ID", "Worker ID",
-        "Missing PPE", "Present PPE", "Review Status", "Reviewed By", "Audit Notes", "SHA-256 Hash"
-    ])
+    writer.writerow(
+        [
+            "Event ID",
+            "UUID",
+            "Timestamp (Local)",
+            "Zone ID",
+            "Worker ID",
+            "Missing PPE",
+            "Present PPE",
+            "Review Status",
+            "Reviewed By",
+            "Audit Notes",
+            "SHA-256 Hash",
+        ]
+    )
     for v in violations:
-        writer.writerow([
-            v["id"],
-            v.get("event_uuid", ""),
-            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(v["timestamp"])),
-            v["zone_id"],
-            v["track_id"],
-            ", ".join(v.get("missing_ppe", [])),
-            ", ".join(v.get("present_ppe", [])),
-            v.get("review_status", "UNREVIEWED"),
-            v.get("reviewed_by", "") or "Unreviewed",
-            v.get("review_notes", "") or "None",
-            v.get("evidence_sha256", ""),
-        ])
+        writer.writerow(
+            [
+                v["id"],
+                v.get("event_uuid", ""),
+                time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(v["timestamp"])),
+                v["zone_id"],
+                v["track_id"],
+                ", ".join(v.get("missing_ppe", [])),
+                ", ".join(v.get("present_ppe", [])),
+                v.get("review_status", "UNREVIEWED"),
+                v.get("reviewed_by", "") or "Unreviewed",
+                v.get("review_notes", "") or "None",
+                v.get("evidence_sha256", ""),
+            ]
+        )
     return Response(
         content=output.getvalue(),
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f"attachment; filename=ppe_safety_audit_{int(time.time())}.csv"},
+        headers={
+            "Content-Disposition": f"attachment; filename=ppe_safety_audit_{int(time.time())}.csv"
+        },
     )
+
 
 # ── Worker Shift Attendance & Registry Endpoints ──────────────────────────────
 @app.get("/api/v1/attendance", summary="List worker shift attendance and compliance registry")
@@ -554,14 +656,18 @@ def get_attendance(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ) -> dict[str, Any]:
-    records = db.get_attendance(session_id=session_id, status=status, zone_id=zone_id, limit=limit, offset=offset)
+    records = db.get_attendance(
+        session_id=session_id, status=status, zone_id=zone_id, limit=limit, offset=offset
+    )
     summary = db.get_attendance_summary()
     return {"attendance": records, "summary": summary}
+
 
 @app.delete("/api/v1/attendance", summary="Clear all worker shift attendance records")
 def clear_attendance_records() -> dict[str, Any]:
     cnt = db.clear_attendance()
     return {"status": "success", "cleared_count": cnt}
+
 
 @app.get("/api/v1/export/attendance", summary="Export attendance roster (CSV / Excel / JSON)")
 def export_attendance_roster(
@@ -586,7 +692,11 @@ def export_attendance_roster(
                 else "background-color:#fee2e2;color:#991b1b;font-weight:bold;text-align:center;"
             )
             dwell_s = r.get("dwell_seconds", 0.0)
-            dwell_fmt = f"{int(dwell_s // 60)}m {int(dwell_s % 60)}s" if dwell_s >= 60 else f"{dwell_s:.1f}s"
+            dwell_fmt = (
+                f"{int(dwell_s // 60)}m {int(dwell_s % 60)}s"
+                if dwell_s >= 60
+                else f"{dwell_s:.1f}s"
+            )
             rows_html.append(f"""
             <tr>
               <td style="text-align:center;font-weight:bold;">#{r.get("track_id", "")}</td>
@@ -640,35 +750,51 @@ def export_attendance_roster(
         return Response(
             content=excel_content,
             media_type="application/vnd.ms-excel",
-            headers={"Content-Disposition": f"attachment; filename=worker_attendance_roster_{int(time.time())}.xls"},
+            headers={
+                "Content-Disposition": f"attachment; filename=worker_attendance_roster_{int(time.time())}.xls"
+            },
         )
 
     output = io.StringIO()
     output.write("\ufeff")
     writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
-    writer.writerow([
-        "Worker ID", "First Seen (Local)", "Last Seen (Local)", "Dwell Time (s)",
-        "Compliance Status", "PPE Verification Score (%)", "Violation Count",
-        "Zone ID", "Source Feed", "Session ID"
-    ])
+    writer.writerow(
+        [
+            "Worker ID",
+            "First Seen (Local)",
+            "Last Seen (Local)",
+            "Dwell Time (s)",
+            "Compliance Status",
+            "PPE Verification Score (%)",
+            "Violation Count",
+            "Zone ID",
+            "Source Feed",
+            "Session ID",
+        ]
+    )
     for r in records:
-        writer.writerow([
-            r["track_id"],
-            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(r["first_seen"])),
-            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(r["last_seen"])),
-            r.get("dwell_seconds", 0.0),
-            r.get("compliance_status", "PASSED"),
-            r.get("verification_score", 100.0),
-            r.get("violation_count", 0),
-            r.get("zone_id", ""),
-            r.get("source", ""),
-            r.get("session_id", ""),
-        ])
+        writer.writerow(
+            [
+                r["track_id"],
+                time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(r["first_seen"])),
+                time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(r["last_seen"])),
+                r.get("dwell_seconds", 0.0),
+                r.get("compliance_status", "PASSED"),
+                r.get("verification_score", 100.0),
+                r.get("violation_count", 0),
+                r.get("zone_id", ""),
+                r.get("source", ""),
+                r.get("session_id", ""),
+            ]
+        )
     return Response(
         content=output.getvalue(),
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f"attachment; filename=worker_attendance_roster_{int(time.time())}.csv"},
+        headers={
+            "Content-Disposition": f"attachment; filename=worker_attendance_roster_{int(time.time())}.csv"
+        },
     )
+
 
 @app.get("/api/v1/videos/sample-list", summary="List preloaded industrial CCTV demo clips")
 def get_sample_videos() -> list[dict[str, Any]]:
@@ -711,6 +837,7 @@ def get_sample_videos() -> list[dict[str, Any]]:
             existing.append(s)
     return existing
 
+
 @app.get("/api/v1/evidence/{filename}", summary="Serve cropped evidence snapshot")
 def get_evidence_image(filename: str):
     path = EVIDENCE_DIR / filename
@@ -723,10 +850,14 @@ def get_evidence_image(filename: str):
         return Response(content=buf.tobytes(), media_type="image/jpeg")
     return FileResponse(str(path), media_type="image/jpeg")
 
+
 # ── Dynamic Camera MJPEG Stream Endpoint ──────────────────────────────────────
 @app.get("/api/v1/stream/feed", summary="Live camera MJPEG stream with dynamic bounding boxes")
-async def video_feed(request: Request, zone: str = "active_work_zone", camera_id: str | None = None):
+async def video_feed(
+    request: Request, zone: str = "active_work_zone", camera_id: str | None = None
+):
     """Streams the real live edge webcam feed directly into the dashboard."""
+
     async def frame_generator():
         while True:
             if await request.is_disconnected():
@@ -736,8 +867,11 @@ async def video_feed(request: Request, zone: str = "active_work_zone", camera_id
             yield (
                 b"--frame\r\n"
                 b"Content-Type: image/jpeg\r\n"
-                b"Content-Length: " + str(length).encode("ascii") + b"\r\n\r\n"
-                + jpeg_bytes + b"\r\n"
+                b"Content-Length: "
+                + str(length).encode("ascii")
+                + b"\r\n\r\n"
+                + jpeg_bytes
+                + b"\r\n"
             )
             await asyncio.sleep(0.033)  # ~30 FPS smooth real-time delivery
 
@@ -746,15 +880,18 @@ async def video_feed(request: Request, zone: str = "active_work_zone", camera_id
         media_type="multipart/x-mixed-replace; boundary=frame",
     )
 
+
 @app.get("/api/v1/video/processed", summary="Serve the most recently annotated uploaded video")
 def get_processed_video() -> FileResponse:
     if not PROCESSED_VIDEO_PATH.is_file():
         raise HTTPException(status_code=404, detail="No processed video is available yet.")
     return FileResponse(str(PROCESSED_VIDEO_PATH), media_type="video/mp4")
 
+
 # ── Video Upload & Automated Pipeline Inspection Endpoint ───────────────────────
 _PIPELINE_LOCK = asyncio.Lock()
 _PIPELINE = None
+
 
 def get_ppe_pipeline():
     """Return a shared model with fresh stateful components for each upload."""
@@ -763,13 +900,19 @@ def get_ppe_pipeline():
         model_candidates = [
             BASE_DIR / "weights" / "best.pt",
             BASE_DIR / "PPE_detection" / "runs" / "ppe_exp_v3" / "ultra" / "weights" / "best.pt",
-            BASE_DIR / "PPE_detection" / "runs" / "ppe_three_source_v1" / "ultra" / "weights" / "best.pt",
+            BASE_DIR
+            / "PPE_detection"
+            / "runs"
+            / "ppe_three_source_v1"
+            / "ultra"
+            / "weights"
+            / "best.pt",
             BASE_DIR / "runs" / "ppe_6class_60eps" / "ultra" / "ultra" / "weights" / "best.pt",
             BASE_DIR / "yolov8s.pt",
         ]
         model_path = next((p for p in model_candidates if p.is_file()), BASE_DIR / "yolov8s.pt")
-        from ppe_monitor.detector.yolo_detector import PPEDetector
         from ppe_monitor.compliance.policy_loader import PolicyLoader
+        from ppe_monitor.detector.yolo_detector import PPEDetector
         from ppe_monitor.display.visualizer import Visualizer
 
         detector = PPEDetector(str(model_path))
@@ -784,7 +927,11 @@ def get_ppe_pipeline():
     # Policies edited in the dashboard must also govern offline analysis.
     return detector, PersonTracker(), ComplianceEngine(policy), viz, policy
 
-@app.post("/api/v1/video/upload-and-process", summary="Upload custom video feed and run automated PPE inspection")
+
+@app.post(
+    "/api/v1/video/upload-and-process",
+    summary="Upload custom video feed and run automated PPE inspection",
+)
 async def upload_and_process_video(
     file: UploadFile = File(...),
     zone_id: str = Form("active_work_zone"),
@@ -793,7 +940,9 @@ async def upload_and_process_video(
     """Uploads a video, executes the YOLOv8s PPE pipeline, records violations & evidence, and saves an annotated video feed."""
     ext = Path(file.filename or "video.mp4").suffix.lower()
     if ext not in [".mp4", ".avi", ".mov", ".mkv", ".webm"]:
-        raise HTTPException(status_code=400, detail=f"Unsupported format '{ext}'. Upload .mp4, .avi, or .mov")
+        raise HTTPException(
+            status_code=400, detail=f"Unsupported format '{ext}'. Upload .mp4, .avi, or .mov"
+        )
 
     saved_path = UPLOAD_DIR / (file.filename or "uploaded_video.mp4")
     with open(saved_path, "wb") as f:
@@ -808,6 +957,7 @@ async def upload_and_process_video(
     async with _PIPELINE_LOCK:
         try:
             from ppe_monitor.tracker.association import associate_ppe_to_workers
+
             detector, tracker, engine, viz, policy = get_ppe_pipeline()
             zone = db.get_zone(zone_id)
             if not zone:
@@ -882,10 +1032,20 @@ async def upload_and_process_video(
                     else:
                         cv2.imwrite(str(crop_path), frame_resized)
 
-                    sha = hashlib.sha256(crop_path.read_bytes()).hexdigest() if crop_path.is_file() else ""
+                    sha = (
+                        hashlib.sha256(crop_path.read_bytes()).hexdigest()
+                        if crop_path.is_file()
+                        else ""
+                    )
                     ar_item = next((a for a in associations if a.track_id == ev.track_id), None)
-                    present_items = [p for p, ok in (ar_item.ppe_present.items() if ar_item else []) if ok]
-                    conf_map = {p: det.confidence for p, det in (ar_item.ppe_detections.items() if ar_item else []) if det}
+                    present_items = [
+                        p for p, ok in (ar_item.ppe_present.items() if ar_item else []) if ok
+                    ]
+                    conf_map = {
+                        p: det.confidence
+                        for p, det in (ar_item.ppe_detections.items() if ar_item else [])
+                        if det
+                    }
 
                     row_id = db.log_event(
                         event=ev,
@@ -895,18 +1055,21 @@ async def upload_and_process_video(
                         bbox=list(wbox) if wbox else [],
                         sha256_hash=sha,
                     )
-                    violations_logged.append({
-                        "id": row_id,
-                        "track_id": ev.track_id,
-                        "zone_id": zone_id,
-                        "missing_ppe": ev.missing_ppe,
-                        "frame": frame_idx,
-                    })
+                    violations_logged.append(
+                        {
+                            "id": row_id,
+                            "track_id": ev.track_id,
+                            "zone_id": zone_id,
+                            "missing_ppe": ev.missing_ppe,
+                            "frame": frame_idx,
+                        }
+                    )
 
                 # 5b. Shift Worker Attendance Logging
                 valid_tracked = [tp for tp in tracked_persons if tp.track_id is not None]
                 if valid_tracked and (frame_idx % 3 == 0):
                     from ppe_monitor.compliance.worker_state import ComplianceStatus
+
                     for tp in valid_tracked:
                         ws = engine.worker_states.get(tp.track_id)
                         is_compliant = (ws.status == ComplianceStatus.COMPLIANT) if ws else True
@@ -936,7 +1099,9 @@ async def upload_and_process_video(
                         )
 
                 # 6. Annotate frame
-                annotated = viz.draw(frame_resized, tracked_persons, ppe_items, associations, engine.worker_states)
+                annotated = viz.draw(
+                    frame_resized, tracked_persons, ppe_items, associations, engine.worker_states
+                )
                 cv2.rectangle(annotated, (0, 0), (640, 28), (248, 250, 252), -1)
                 cv2.putText(
                     annotated,
@@ -995,6 +1160,7 @@ async def upload_and_process_video(
                 cap.release()
             raise HTTPException(status_code=500, detail=f"Processing error: {str(e)}")
 
+
 # ── Video Stream Processing Service ───────────────────────────────────────────
 class VideoStreamService:
     """
@@ -1039,7 +1205,10 @@ class VideoStreamService:
             self.violations_logged = 0
             self.frames_processed = 0
             self.filename = Path(video_path).name
-            self.latest_checklist = {k: {"present": False, "confidence": 0.0} for k in ["helmet", "vest", "boots", "gloves"]}
+            self.latest_checklist = {
+                k: {"present": False, "confidence": 0.0}
+                for k in ["helmet", "vest", "boots", "gloves"]
+            }
         self.thread = threading.Thread(
             target=self._run, args=(video_path, zone_id, arduino, ws_manager, db), daemon=True
         )
@@ -1054,7 +1223,11 @@ class VideoStreamService:
             if self.latest_jpeg is not None and (time.time() - self.last_frame_time < 5.0):
                 return self.latest_jpeg
         # Standby / done placeholder
-        label = "PROCESSING COMPLETE" if self.done else ("ERROR: " + (self.error or "")) if self.error else "STARTING..."
+        label = (
+            "PROCESSING COMPLETE"
+            if self.done
+            else ("ERROR: " + (self.error or "")) if self.error else "STARTING..."
+        )
         img = np.zeros((480, 640, 3), dtype=np.uint8) + 18
         cv2.putText(img, label, (80, 240), cv2.FONT_HERSHEY_SIMPLEX, 0.72, (200, 200, 200), 2)
         _, buf = cv2.imencode(".jpg", img)
@@ -1078,6 +1251,7 @@ class VideoStreamService:
 
     def _run(self, video_path: str, zone_id: str, arduino, ws_manager, db):
         import threading as _threading
+
         from ppe_monitor.compliance.engine import ComplianceEngine
         from ppe_monitor.compliance.policy_loader import PolicyLoader
         from ppe_monitor.compliance.worker_state import ComplianceStatus
@@ -1090,8 +1264,20 @@ class VideoStreamService:
         try:
             model_candidates = [
                 BASE_DIR / "weights" / "best.pt",
-                BASE_DIR / "PPE_detection" / "runs" / "ppe_exp_v3" / "ultra" / "weights" / "best.pt",
-                BASE_DIR / "PPE_detection" / "runs" / "ppe_three_source_v1" / "ultra" / "weights" / "best.pt",
+                BASE_DIR
+                / "PPE_detection"
+                / "runs"
+                / "ppe_exp_v3"
+                / "ultra"
+                / "weights"
+                / "best.pt",
+                BASE_DIR
+                / "PPE_detection"
+                / "runs"
+                / "ppe_three_source_v1"
+                / "ultra"
+                / "weights"
+                / "best.pt",
                 BASE_DIR / "runs" / "ppe_6class_60eps" / "ultra" / "ultra" / "weights" / "best.pt",
                 BASE_DIR / "yolov8s.pt",
             ]
@@ -1146,7 +1332,12 @@ class VideoStreamService:
                 frame_timestamps.append(t_start)
                 if len(frame_timestamps) > 15:
                     frame_timestamps.pop(0)
-                fps_now = (len(frame_timestamps) - 1) / max(frame_timestamps[-1] - frame_timestamps[0], 1e-4) if len(frame_timestamps) >= 2 else 0.0
+                fps_now = (
+                    (len(frame_timestamps) - 1)
+                    / max(frame_timestamps[-1] - frame_timestamps[0], 1e-4)
+                    if len(frame_timestamps) >= 2
+                    else 0.0
+                )
 
                 # 1. Detect
                 persons_raw, ppe_items = detector.detect(frame)
@@ -1156,7 +1347,9 @@ class VideoStreamService:
                     if tp.track_id is not None:
                         self.active_workers_seen.add(tp.track_id)
                 # 3. Associate
-                associations = associate_ppe_to_workers(tracked_persons, ppe_items, region_map=policy.get_body_regions())
+                associations = associate_ppe_to_workers(
+                    tracked_persons, ppe_items, region_map=policy.get_body_regions()
+                )
                 # 4. Compliance
                 events = engine.update(associations, zone_id, now=frame_idx / video_fps)
 
@@ -1165,10 +1358,14 @@ class VideoStreamService:
                     try:
                         valid_tracked = [tp for tp in tracked_persons if tp.track_id is not None]
                         states = [engine.worker_states.get(tp.track_id) for tp in valid_tracked]
-                        violators = [s for s in states if s and s.status == ComplianceStatus.VIOLATION]
+                        violators = [
+                            s for s in states if s and s.status == ComplianceStatus.VIOLATION
+                        ]
                         if violators:
                             violator = min(violators, key=lambda s: s.track_id)
-                            arduino.send_violation(violator.track_id, sorted(violator.confirmed_violations)[0])
+                            arduino.send_violation(
+                                violator.track_id, sorted(violator.confirmed_violations)[0]
+                            )
                         elif any(s and s.status == ComplianceStatus.PENDING for s in states):
                             arduino.send_pending()
                         elif valid_tracked:
@@ -1183,19 +1380,33 @@ class VideoStreamService:
                 violations_in_frame = 0
                 for ev in events:
                     violations_in_frame += 1
-                    crop_filename = f"videostream_worker_{ev.track_id}_{frame_idx}_{time.time_ns()}.jpg"
+                    crop_filename = (
+                        f"videostream_worker_{ev.track_id}_{frame_idx}_{time.time_ns()}.jpg"
+                    )
                     crop_path = EVIDENCE_DIR / crop_filename
-                    wbox = next((tp.box for tp in tracked_persons if tp.track_id == ev.track_id), None)
+                    wbox = next(
+                        (tp.box for tp in tracked_persons if tp.track_id == ev.track_id), None
+                    )
                     if wbox is not None:
                         bx1, by1, bx2, by2 = [max(0, int(v)) for v in wbox]
                         crop = frame[by1:by2, bx1:bx2]
                         cv2.imwrite(str(crop_path), crop if crop.size > 0 else frame)
                     else:
                         cv2.imwrite(str(crop_path), frame)
-                    sha = hashlib.sha256(crop_path.read_bytes()).hexdigest() if crop_path.is_file() else ""
+                    sha = (
+                        hashlib.sha256(crop_path.read_bytes()).hexdigest()
+                        if crop_path.is_file()
+                        else ""
+                    )
                     ar_item = next((a for a in associations if a.track_id == ev.track_id), None)
-                    present_items = [p for p, ok in (ar_item.ppe_present.items() if ar_item else []) if ok]
-                    conf_map = {p: det.confidence for p, det in (ar_item.ppe_detections.items() if ar_item else []) if det}
+                    present_items = [
+                        p for p, ok in (ar_item.ppe_present.items() if ar_item else []) if ok
+                    ]
+                    conf_map = {
+                        p: det.confidence
+                        for p, det in (ar_item.ppe_detections.items() if ar_item else [])
+                        if det
+                    }
                     if db:
                         db.log_event(
                             event=ev,
@@ -1238,17 +1449,29 @@ class VideoStreamService:
                         )
 
                 # 7. Build live checklist (primary/largest worker)
-                checklist_snap = {k: {"present": False, "confidence": 0.0} for k in ["helmet", "vest", "boots", "gloves"]}
+                checklist_snap = {
+                    k: {"present": False, "confidence": 0.0}
+                    for k in ["helmet", "vest", "boots", "gloves"]
+                }
                 workers_payload = []
                 valid_tracked = [tp for tp in tracked_persons if tp.track_id is not None]
                 if valid_tracked and associations:
-                    primary = max(valid_tracked, key=lambda p: (p.box[2] - p.box[0]) * (p.box[3] - p.box[1]))
-                    primary_ar = next((a for a in associations if a.track_id == primary.track_id), None)
+                    primary = max(
+                        valid_tracked, key=lambda p: (p.box[2] - p.box[0]) * (p.box[3] - p.box[1])
+                    )
+                    primary_ar = next(
+                        (a for a in associations if a.track_id == primary.track_id), None
+                    )
                     if primary_ar:
                         for k in ["helmet", "vest", "boots", "gloves"]:
                             pres = primary_ar.ppe_present.get(k, False)
                             det = primary_ar.ppe_detections.get(k)
-                            checklist_snap[k] = {"present": pres, "confidence": round(float(det.confidence if det else (0.85 if pres else 0.0)), 2)}
+                            checklist_snap[k] = {
+                                "present": pres,
+                                "confidence": round(
+                                    float(det.confidence if det else (0.85 if pres else 0.0)), 2
+                                ),
+                            }
                 for tp in valid_tracked:
                     ws = engine.worker_states.get(tp.track_id)
                     ar = next((a for a in associations if a.track_id == tp.track_id), None)
@@ -1257,20 +1480,28 @@ class VideoStreamService:
                         pres = ar.ppe_present.get(k, False) if ar else False
                         det = ar.ppe_detections.get(k) if ar else None
                         w_cl[k] = {"present": pres, "confidence": det.confidence if det else 0.0}
-                    workers_payload.append({
-                        "track_id": tp.track_id,
-                        "bbox": [int(v) for v in tp.box],
-                        "status": ws.status.value if ws else "COMPLIANT",
-                        "checklist": w_cl,
-                    })
+                    workers_payload.append(
+                        {
+                            "track_id": tp.track_id,
+                            "bbox": [int(v) for v in tp.box],
+                            "status": ws.status.value if ws else "COMPLIANT",
+                            "checklist": w_cl,
+                        }
+                    )
 
                 # 8. Annotate frame
-                annotated = viz.draw(frame, tracked_persons, ppe_items, associations, engine.worker_states)
+                annotated = viz.draw(
+                    frame, tracked_persons, ppe_items, associations, engine.worker_states
+                )
                 cv2.rectangle(annotated, (0, 0), (w, 28), (248, 250, 252), -1)
                 cv2.putText(
                     annotated,
                     f"VIDEO FEED: {self.filename[:20]} | FRAME {frame_idx}/{total} | {fps_now:.1f} FPS | WORKERS: {len(valid_tracked)}",
-                    (8, 18), cv2.FONT_HERSHEY_SIMPLEX, 0.38, (15, 23, 42), 1,
+                    (8, 18),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.38,
+                    (15, 23, 42),
+                    1,
                 )
 
                 # 9. Encode JPEG
@@ -1293,24 +1524,29 @@ class VideoStreamService:
                     violation_c = sum(1 for w in workers_payload if w.get("status") == "VIOLATION")
                     try:
                         import asyncio as _asyncio
+
                         loop = _event_loop or _asyncio.get_event_loop()
                         if loop.is_running():
                             _asyncio.run_coroutine_threadsafe(
-                                ws_manager.broadcast({
-                                    "type": "telemetry_tick",
-                                    "timestamp": now_wall,
-                                    "zone_id": zone_id,
-                                    "fps": round(fps_now, 1),
-                                    "active_workers": len(workers_payload),
-                                    "compliant_count": compliant_c,
-                                    "violation_count": violation_c,
-                                    "workers": workers_payload,
-                                    "checklist": checklist_snap,
-                                    "test_mode": "all_ppe",
-                                    "serial_connected": bool(arduino and arduino.ser and arduino.ser.is_open),
-                                    "source": "video_stream",
-                                }),
-                                loop
+                                ws_manager.broadcast(
+                                    {
+                                        "type": "telemetry_tick",
+                                        "timestamp": now_wall,
+                                        "zone_id": zone_id,
+                                        "fps": round(fps_now, 1),
+                                        "active_workers": len(workers_payload),
+                                        "compliant_count": compliant_c,
+                                        "violation_count": violation_c,
+                                        "workers": workers_payload,
+                                        "checklist": checklist_snap,
+                                        "test_mode": "all_ppe",
+                                        "serial_connected": bool(
+                                            arduino and arduino.ser and arduino.ser.is_open
+                                        ),
+                                        "source": "video_stream",
+                                    }
+                                ),
+                                loop,
                             )
                     except Exception:
                         pass
@@ -1318,9 +1554,12 @@ class VideoStreamService:
                 # 12. Log DB telemetry every ~2 seconds
                 if db and frame_idx % max(1, int(video_fps * 2)) == 0:
                     db.log_telemetry(
-                        zone_id=zone_id, camera_id="cam_videostream",
+                        zone_id=zone_id,
+                        camera_id="cam_videostream",
                         active_workers=len(workers_payload) or 1,
-                        compliant_count=max(0, len(workers_payload) - (1 if violations_in_frame > 0 else 0)),
+                        compliant_count=max(
+                            0, len(workers_payload) - (1 if violations_in_frame > 0 else 0)
+                        ),
                         violation_count=1 if violations_in_frame > 0 else 0,
                         fps=round(fps_now, 1),
                     )
@@ -1350,18 +1589,25 @@ class VideoStreamService:
             # Register camera
             if db:
                 db.register_or_update_camera(
-                    camera_id="cam_videostream", zone_id=zone_id,
+                    camera_id="cam_videostream",
+                    zone_id=zone_id,
                     name=f"Video: {Path(video_path).name[:20]}",
-                    source_url=f"file://uploads/{Path(video_path).name}", is_online=0,
+                    source_url=f"file://uploads/{Path(video_path).name}",
+                    is_online=0,
                 )
-            print(f"[VIDEO STREAM] Finished processing {video_path} — {self.frames_processed} frames, {self.violations_logged} violations.")
+            print(
+                f"[VIDEO STREAM] Finished processing {video_path} — {self.frames_processed} frames, {self.violations_logged} violations."
+            )
 
 
 # Global video stream service singleton
 video_stream_service = VideoStreamService()
 
 
-@app.post("/api/v1/video/start-stream", summary="Start real-time MJPEG stream processing of an uploaded video file")
+@app.post(
+    "/api/v1/video/start-stream",
+    summary="Start real-time MJPEG stream processing of an uploaded video file",
+)
 async def start_video_stream(
     file: UploadFile | None = File(None),
     sample_filename: str | None = Form(None),
@@ -1375,7 +1621,9 @@ async def start_video_stream(
     if sample_filename:
         saved_path = UPLOAD_DIR / sample_filename
         if not saved_path.is_file():
-            raise HTTPException(status_code=404, detail=f"Sample video '{sample_filename}' not found.")
+            raise HTTPException(
+                status_code=404, detail=f"Sample video '{sample_filename}' not found."
+            )
         chosen_filename = sample_filename
     elif file is not None and getattr(file, "filename", None):
         ext = Path(file.filename or "video.mp4").suffix.lower()
@@ -1387,7 +1635,9 @@ async def start_video_stream(
             shutil.copyfileobj(file.file, f)
         chosen_filename = file.filename
     else:
-        raise HTTPException(status_code=400, detail="Provide an uploaded video file or a preloaded sample clip.")
+        raise HTTPException(
+            status_code=400, detail="Provide an uploaded video file or a preloaded sample clip."
+        )
 
     # Verify zone
     zone = db.get_zone(zone_id)
@@ -1402,7 +1652,7 @@ async def start_video_stream(
     video_stream_service.start(
         video_path=str(saved_path),
         zone_id=zone_id,
-        arduino=live_service.arduino,       # Share the same ESP32 bridge
+        arduino=live_service.arduino,  # Share the same ESP32 bridge
         ws_manager=manager,
         db=db,
     )
@@ -1415,9 +1665,13 @@ async def start_video_stream(
     }
 
 
-@app.get("/api/v1/video/stream-feed", summary="MJPEG stream of the video being processed with live bounding boxes")
+@app.get(
+    "/api/v1/video/stream-feed",
+    summary="MJPEG stream of the video being processed with live bounding boxes",
+)
 async def video_stream_feed(request: Request):
     """Streams annotated JPEG frames from the currently-processing uploaded video."""
+
     async def frame_generator():
         while True:
             if await request.is_disconnected():
@@ -1427,8 +1681,11 @@ async def video_stream_feed(request: Request):
             yield (
                 b"--frame\r\n"
                 b"Content-Type: image/jpeg\r\n"
-                b"Content-Length: " + str(length).encode("ascii") + b"\r\n\r\n"
-                + jpeg_bytes + b"\r\n"
+                b"Content-Length: "
+                + str(length).encode("ascii")
+                + b"\r\n\r\n"
+                + jpeg_bytes
+                + b"\r\n"
             )
             await asyncio.sleep(0.033)
 
@@ -1438,7 +1695,9 @@ async def video_stream_feed(request: Request):
     )
 
 
-@app.get("/api/v1/video/stream-status", summary="Get live status of the video stream processing job")
+@app.get(
+    "/api/v1/video/stream-status", summary="Get live status of the video stream processing job"
+)
 def get_video_stream_status() -> dict[str, Any]:
     return video_stream_service.get_status()
 
@@ -1464,10 +1723,10 @@ async def websocket_telemetry(websocket: WebSocket):
     except Exception:
         manager.disconnect(websocket)
 
+
 # ── Serve Built Frontend Dashboard (Production Distribution) ───────────────────
 from fastapi.staticfiles import StaticFiles
 
 FRONTEND_DIST = BASE_DIR / "frontend" / "dist"
 if FRONTEND_DIST.is_dir():
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="frontend")
-
