@@ -10,7 +10,10 @@ from __future__ import annotations
 import math
 from typing import List, Optional, Tuple
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None  # type: ignore
 
 from ppe_monitor.detector.yolo_detector import RawDetection
 

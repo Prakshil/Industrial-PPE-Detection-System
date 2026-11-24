@@ -7,11 +7,22 @@ Optimized for zero-lag real-time GPU/CPU edge inference.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
-import numpy as np
-import torch
-from ultralytics import YOLO
+try:
+    import numpy as np
+except ImportError:
+    np = None  # type: ignore
+
+try:
+    import torch
+except ImportError:
+    torch = None  # type: ignore
+
+try:
+    from ultralytics import YOLO
+except ImportError:
+    YOLO = None  # type: ignore
 
 
 @dataclass
@@ -71,6 +82,10 @@ class PPEDetector:
         iou_threshold: float = 0.45,
         imgsz: int = 640,
     ):
+        if torch is None or YOLO is None:
+            raise RuntimeError(
+                "torch and ultralytics are required to use PPEDetector. Please install them."
+            )
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.model = YOLO(model_path)
         try:
